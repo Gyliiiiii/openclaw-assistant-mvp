@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw Assistant</title>
+  <link rel="stylesheet" href="styles.css">
+  <!-- Iconify 图标库 -->
+  <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+</head>
+<body>
+  <!-- 悬浮球模式 -->
+  <div class="mini-orb" id="mini-orb" style="display: none;">
+    <video class="mini-orb-avatar" id="mini-orb-video" autoplay muted loop playsinline>
+      <source src="lobster-idle.mp4" type="video/mp4">
+    </video>
+    <!-- 放大按钮 -->
+    <button class="mini-expand-btn" id="mini-expand-btn" title="放大">
+      <span class="iconify" data-icon="mdi:arrow-expand"></span>
+    </button>
+    <!-- 聆听脉冲指示 -->
+    <div class="mini-pulse"></div>
+  </div>
+
+  <div class="widget-container" id="widget-container">
+    <!-- 语音气泡 (显示在龙虾上方) -->
+    <div class="speech-bubble" id="speech-bubble" style="display: none;">
+      <div class="bubble-content" id="bubble-text"></div>
+      <div class="bubble-arrow"></div>
+    </div>
+
+    <!-- 状态提示 -->
+    <div class="status-hint" id="status-hint"></div>
+
+    <!-- 龙虾角色区域 -->
+    <div class="lobster-area" id="lobster-area">
+      <canvas id="aura-canvas"></canvas>
+      <!-- 聆听脉冲环 -->
+      <div class="listening-pulse-ring hidden" id="listening-pulse-ring">
+        <div class="ring-3"></div>
+      </div>
+      <video class="lobster-character" id="lobster-char" autoplay muted playsinline>
+        <source src="lobster-welcome.mp4" type="video/mp4">
+      </video>
+      <!-- 点击引导提示 -->
+      <div class="tap-hint" id="tap-hint">
+        <span class="iconify tap-icon" data-icon="mdi:gesture-tap"></span>
+        <span class="tap-text">点击我开始对话</span>
+      </div>
+    </div>
+
+    <!-- 底部状态指示 -->
+    <div class="bottom-bar">
+      <div class="state-indicator" id="state-indicator">
+        <span class="state-dot"></span>
+        <span class="state-text" id="state-text">点击我开始对话</span>
+      </div>
+      <div class="widget-controls">
+        <button id="character-select-btn" class="tiny-btn" title="切换角色">
+          <span class="iconify" data-icon="mdi:account-switch"></span>
+        </button>
+        <button id="voice-select-btn" class="tiny-btn" title="切换音色">
+          <span class="iconify" data-icon="mdi:music-note"></span>
+        </button>
+        <button id="minimize-btn" class="tiny-btn" title="最小化">
+          <span class="iconify" data-icon="mdi:minus"></span>
+        </button>
+        <button id="close-btn" class="tiny-btn close" title="关闭">
+          <span class="iconify" data-icon="mdi:close"></span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 文本输入区域 -->
+    <div class="text-input-area" id="text-input-area">
+      <input type="text" id="text-input" class="text-input" placeholder="输入文字与我对话..." />
+      <button id="send-btn" class="send-btn" title="发送">
+        <span class="iconify" data-icon="mdi:send"></span>
+      </button>
+    </div>
+
+    <!-- 角色切换面板 -->
+    <div class="character-panel" id="character-panel" style="display: none;">
+      <div class="character-panel-header">
+        <span class="character-panel-title">选择角色</span>
+        <button id="close-character-panel" class="tiny-btn">
+          <span class="iconify" data-icon="mdi:close"></span>
+        </button>
+      </div>
+      <div class="character-list" id="character-list"></div>
+    </div>
+
+    <!-- 音色选择面板 -->
+    <div class="voice-panel" id="voice-panel" style="display: none;">
+      <div class="voice-panel-header">
+        <span class="voice-panel-title">选择音色</span>
+        <button id="close-voice-panel" class="tiny-btn">
+          <span class="iconify" data-icon="mdi:close"></span>
+        </button>
+      </div>
+      <div class="voice-filter">
+        <button class="filter-btn active" data-filter="all">全部</button>
+        <button class="filter-btn" data-filter="zh">中文</button>
+        <button class="filter-btn" data-filter="en">English</button>
+      </div>
+      <div class="voice-list" id="voice-list"></div>
+    </div>
+  </div>
+
+  <script src="orb.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
