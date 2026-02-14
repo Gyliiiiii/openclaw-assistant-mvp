@@ -49,8 +49,6 @@ OPENCLAW_GATEWAY_TOKEN=your_openclaw_gateway_token_here
 
 Copy `.env.example` to `.env` and fill in your API keys.
 
-> **Note:** The `.env.example` file still references Gemini API keys, but the actual implementation uses Deepgram for STT and MiniMax for TTS. Update `.env.example` if needed.
-
 ## Architecture
 
 ### Core Components
