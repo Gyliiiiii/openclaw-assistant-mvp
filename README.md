@@ -6,14 +6,14 @@
 
 ## 中文
 
-基于 Electron 的 AI 语音桌面助手，集成 Deepgram 实时语音识别、MiniMax 文字转语音，以及 OpenClaw AI 后端。
+基于 Electron 的 AI 语音桌面助手，集成 Deepgram 实时语音识别、MiniMax 文字转语音，以及 OpenClaw Gateway。
 
 ### 功能特性
 
 - ✅ Electron 桌面应用，支持 macOS (x64 + arm64)
 - ✅ 实时语音识别（Deepgram nova-2，中文）
 - ✅ 流式文字转语音（MiniMax，逐句合成无缝播放）
-- ✅ OpenClaw AI 后端集成（WebSocket 流式对话）
+- ✅ OpenClaw Gateway 集成（WebSocket 流式对话）
 - ✅ 多角色系统（龙虾小虾米、Amy，更多角色开发中）
 - ✅ 30 种语音音色可选，实时切换
 - ✅ 迷你悬浮球模式（64x64px，单击听写 / 双击恢复）
@@ -62,9 +62,9 @@ MINIMAX_GROUP_ID=your_group_id
 MINIMAX_MODEL=speech-02-turbo
 MINIMAX_VOICE_ID=Lovely_Girl
 
-# OpenClaw 后端
+# OpenClaw Gateway
 OPENCLAW_PORT=18789
-OPENCLAW_TOKEN=your_token
+OPENCLAW_GATEWAY_TOKEN=your_token
 ```
 
 ### 安装和运行
@@ -130,14 +130,14 @@ npm run build:dmg
 
 ## English
 
-An Electron-based AI voice desktop assistant featuring real-time speech recognition (Deepgram), text-to-speech (MiniMax), and OpenClaw AI backend integration.
+An Electron-based AI voice desktop assistant featuring real-time speech recognition (Deepgram), text-to-speech (MiniMax), and OpenClaw Gateway integration.
 
 ### Features
 
 - ✅ Electron desktop app with macOS support (x64 + arm64)
 - ✅ Real-time speech recognition (Deepgram nova-2, Chinese)
 - ✅ Streaming text-to-speech (MiniMax, sentence-by-sentence seamless playback)
-- ✅ OpenClaw AI backend integration (WebSocket streaming chat)
+- ✅ OpenClaw Gateway integration (WebSocket streaming chat)
 - ✅ Multi-character system (Lobster, Amy, more coming soon)
 - ✅ 30 voice presets with instant switching
 - ✅ Mini floating bubble mode (64x64px, click to listen / double-click to restore)
@@ -186,9 +186,9 @@ MINIMAX_GROUP_ID=your_group_id
 MINIMAX_MODEL=speech-02-turbo
 MINIMAX_VOICE_ID=Lovely_Girl
 
-# OpenClaw backend
+# OpenClaw Gateway
 OPENCLAW_PORT=18789
-OPENCLAW_TOKEN=your_token
+OPENCLAW_GATEWAY_TOKEN=your_token
 ```
 
 ### Installation & Running

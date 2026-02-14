@@ -171,7 +171,7 @@ let currentSender = null;
 
 // ===== OpenClaw WebSocket 配置 =====
 const OPENCLAW_PORT = process.env.OPENCLAW_PORT || 18789;
-const OPENCLAW_TOKEN = process.env.OPENCLAW_TOKEN || '6d4c9e5c78347a57af8f13136c162033f49229840cbe3c69';
+const OPENCLAW_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || '';
 const OPENCLAW_WS_URL = `ws://localhost:${OPENCLAW_PORT}`;
 
 let openclawWs = null;

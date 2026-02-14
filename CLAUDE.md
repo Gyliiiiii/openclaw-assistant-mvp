@@ -42,9 +42,9 @@ MINIMAX_GROUP_ID=your_minimax_group_id_here
 MINIMAX_MODEL=speech-02-turbo
 MINIMAX_VOICE_ID=Lovely_Girl
 
-# OpenClaw backend
+# OpenClaw Gateway
 OPENCLAW_PORT=18789
-OPENCLAW_TOKEN=your_openclaw_token_here
+OPENCLAW_GATEWAY_TOKEN=your_openclaw_gateway_token_here
 ```
 
 Copy `.env.example` to `.env` and fill in your API keys.
@@ -190,7 +190,7 @@ Text containing file paths (e.g., `~/Documents/file.txt`, `/Users/...`) is autom
 - `@deepgram/sdk` v4.11.3 — Speech-to-text via Deepgram WebSocket API
 - `dotenv` v17.2.4 — Environment variable management
 - `node-fetch` v2.7.0 — HTTP client for MiniMax TTS API calls
-- `ws` v8.19.0 — WebSocket client for OpenClaw backend
+- `ws` v8.19.0 — WebSocket client for OpenClaw Gateway
 
 **Dev:**
 - `electron` v28.0.0 — Desktop application framework

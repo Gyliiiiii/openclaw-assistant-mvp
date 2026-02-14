@@ -31,3 +31,9 @@ out/
 
 # Electron
 *.asar
+
+# Backup files
+*.backup
+
+# Project-specific
+agent.md
