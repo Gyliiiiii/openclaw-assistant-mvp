@@ -83,8 +83,8 @@ class TaskManager {
     task.startedAt = Date.now();
 
     try {
-      // 调用 Clawdbot
-      const result = await chatWithClawdbot(task.message);
+      // 调用 OpenClaw
+      const result = await chatWithOpenClaw(task.message);
 
       task.status = 'completed';
       task.result = result;
@@ -169,15 +169,15 @@ let deepgramClient = null;
 let deepgramLive = null;
 let currentSender = null;
 
-// ===== Clawdbot WebSocket 配置 =====
-const CLAWDBOT_PORT = process.env.CLAWDBOT_PORT || 18789;
-const CLAWDBOT_TOKEN = process.env.CLAWDBOT_TOKEN || '6d4c9e5c78347a57af8f13136c162033f49229840cbe3c69';
-const CLAWDBOT_WS_URL = `ws://localhost:${CLAWDBOT_PORT}`;
+// ===== OpenClaw WebSocket 配置 =====
+const OPENCLAW_PORT = process.env.OPENCLAW_PORT || 18789;
+const OPENCLAW_TOKEN = process.env.OPENCLAW_TOKEN || '6d4c9e5c78347a57af8f13136c162033f49229840cbe3c69';
+const OPENCLAW_WS_URL = `ws://localhost:${OPENCLAW_PORT}`;
 
-let clawdbotWs = null;
-let clawdbotConnected = false;
-let clawdbotRequestId = 0;
-let clawdbotPendingRequests = new Map();
+let openclawWs = null;
+let openclawConnected = false;
+let openclawRequestId = 0;
+let openclawPendingRequests = new Map();
 
 // ===== 句子分割器 =====
 class SentenceSplitter {
@@ -296,32 +296,32 @@ class TTSQueueManager {
 const ttsQueueManager = new TTSQueueManager();
 let sentenceCounter = 0;
 
-// ===== Clawdbot WebSocket 连接 =====
-function connectClawdbot() {
-  if (clawdbotWs && clawdbotWs.readyState === WebSocket.OPEN) {
+// ===== OpenClaw WebSocket 连接 =====
+function connectOpenClaw() {
+  if (openclawWs && openclawWs.readyState === WebSocket.OPEN) {
     return Promise.resolve();
   }
 
   return new Promise((resolve, reject) => {
-    console.log(`[Clawdbot] 正在连接 ${CLAWDBOT_WS_URL}...`);
-    clawdbotWs = new WebSocket(CLAWDBOT_WS_URL);
+    console.log(`[OpenClaw] 正在连接 ${OPENCLAW_WS_URL}...`);
+    openclawWs = new WebSocket(OPENCLAW_WS_URL);
 
     const timeout = setTimeout(() => {
-      reject(new Error('Clawdbot 连接超时'));
+      reject(new Error('OpenClaw 连接超时'));
     }, 10000);
 
-    clawdbotWs.on('open', () => {
-      console.log('[Clawdbot] WebSocket 已连接，等待握手...');
+    openclawWs.on('open', () => {
+      console.log('[OpenClaw] WebSocket 已连接，等待握手...');
     });
 
-    clawdbotWs.on('message', (data) => {
+    openclawWs.on('message', (data) => {
       try {
         const msg = JSON.parse(data.toString());
 
         // 处理连接挑战
         if (msg.type === 'event' && msg.event === 'connect.challenge') {
-          console.log('[Clawdbot] 收到连接挑战，发送认证...');
-          clawdbotWs.send(JSON.stringify({
+          console.log('[OpenClaw] 收到连接挑战，发送认证...');
+          openclawWs.send(JSON.stringify({
             type: 'req',
             id: 'connect-1',
             method: 'connect',
@@ -336,7 +336,7 @@ function connectClawdbot() {
               },
               role: 'operator',
               scopes: ['operator.read', 'operator.write'],
-              auth: { token: CLAWDBOT_TOKEN }
+              auth: { token: OPENCLAW_TOKEN }
             }
           }));
         }
@@ -346,8 +346,8 @@ function connectClawdbot() {
           if (msg.id === 'connect-1') {
             if (msg.ok) {
               clearTimeout(timeout);
-              clawdbotConnected = true;
-              console.log('[Clawdbot] 认证成功 ✓');
+              openclawConnected = true;
+              console.log('[OpenClaw] 认证成功 ✓');
               resolve();
             } else {
               clearTimeout(timeout);
@@ -355,9 +355,9 @@ function connectClawdbot() {
             }
           } else {
             // 处理其他请求的响应
-            const pending = clawdbotPendingRequests.get(msg.id);
+            const pending = openclawPendingRequests.get(msg.id);
             if (pending) {
-              clawdbotPendingRequests.delete(msg.id);
+              openclawPendingRequests.delete(msg.id);
               if (msg.ok) {
                 pending.resolve(msg.payload);
               } else {
@@ -369,10 +369,10 @@ function connectClawdbot() {
 
         // 处理聊天事件（流式响应）
         if (msg.type === 'event' && msg.event === 'chat') {
-          const pending = clawdbotPendingRequests.get('chat-stream');
+          const pending = openclawPendingRequests.get('chat-stream');
           if (pending && msg.payload) {
             if (msg.payload.done) {
-              clawdbotPendingRequests.delete('chat-stream');
+              openclawPendingRequests.delete('chat-stream');
               pending.resolve(pending.fullText || '');
             } else if (msg.payload.text) {
               pending.fullText = (pending.fullText || '') + msg.payload.text;
@@ -380,35 +380,35 @@ function connectClawdbot() {
           }
         }
       } catch (e) {
-        console.error('[Clawdbot] 消息解析错误:', e);
+        console.error('[OpenClaw] 消息解析错误:', e);
       }
     });
 
-    clawdbotWs.on('error', (err) => {
-      console.error('[Clawdbot] WebSocket 错误:', err.message);
-      clawdbotConnected = false;
+    openclawWs.on('error', (err) => {
+      console.error('[OpenClaw] WebSocket 错误:', err.message);
+      openclawConnected = false;
     });
 
-    clawdbotWs.on('close', () => {
-      console.log('[Clawdbot] WebSocket 已断开');
-      clawdbotConnected = false;
-      clawdbotWs = null;
+    openclawWs.on('close', () => {
+      console.log('[OpenClaw] WebSocket 已断开');
+      openclawConnected = false;
+      openclawWs = null;
     });
   });
 }
 
-// 发送 Clawdbot 请求
-function clawdbotRequest(method, params = {}) {
+// 发送 OpenClaw 请求
+function openclawRequest(method, params = {}) {
   return new Promise((resolve, reject) => {
-    if (!clawdbotWs || clawdbotWs.readyState !== WebSocket.OPEN) {
-      reject(new Error('Clawdbot 未连接'));
+    if (!openclawWs || openclawWs.readyState !== WebSocket.OPEN) {
+      reject(new Error('OpenClaw 未连接'));
       return;
     }
 
-    const id = `req-${++clawdbotRequestId}`;
-    clawdbotPendingRequests.set(id, { resolve, reject });
+    const id = `req-${++openclawRequestId}`;
+    openclawPendingRequests.set(id, { resolve, reject });
 
-    clawdbotWs.send(JSON.stringify({
+    openclawWs.send(JSON.stringify({
       type: 'req',
       id,
       method,
@@ -417,26 +417,26 @@ function clawdbotRequest(method, params = {}) {
 
     // 超时处理
     setTimeout(() => {
-      if (clawdbotPendingRequests.has(id)) {
-        clawdbotPendingRequests.delete(id);
+      if (openclawPendingRequests.has(id)) {
+        openclawPendingRequests.delete(id);
         reject(new Error('请求超时'));
       }
     }, 30000);
   });
 }
 
-// 发送聊天消息到 Clawdbot（支持流式句子分发）
-async function chatWithClawdbot(message) {
+// 发送聊天消息到 OpenClaw（支持流式句子分发）
+async function chatWithOpenClaw(message) {
   try {
-    await connectClawdbot();
+    await connectOpenClaw();
 
-    console.log(`[Clawdbot] 发送消息: "${message}"`);
+    console.log(`[OpenClaw] 发送消息: "${message}"`);
 
     // 生成唯一的 idempotencyKey
     const idempotencyKey = `openclaw-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
     // 发送消息并等待完成
-    const chatReqId = `chat-${++clawdbotRequestId}`;
+    const chatReqId = `chat-${++openclawRequestId}`;
     let accumulatedText = '';
 
     // 重置句子计数器和 TTS 队列
@@ -446,11 +446,11 @@ async function chatWithClawdbot(message) {
     // 创建句子分割器
     const splitter = new SentenceSplitter((sentence) => {
       const currentSentenceId = ++sentenceCounter;
-      console.log(`[Clawdbot] 句子 #${currentSentenceId}: "${sentence}"`);
+      console.log(`[OpenClaw] 句子 #${currentSentenceId}: "${sentence}"`);
 
       // 第一个句子立即发送到前端显示
       if (currentSentenceId === 1 && mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('clawdbot:firstSentence', { text: sentence });
+        mainWindow.webContents.send('openclaw:firstSentence', { text: sentence });
       }
 
       // 将句子加入 TTS 队列
@@ -460,16 +460,16 @@ async function chatWithClawdbot(message) {
     return new Promise((resolve, reject) => {
       // 复杂任务（搜索、工具调用等）可能需要较长时间，超时设为 180 秒
       const timeout = setTimeout(() => {
-        if (clawdbotWs) {
-          clawdbotWs.removeListener('message', chatHandler);
+        if (openclawWs) {
+          openclawWs.removeListener('message', chatHandler);
         }
         // 超时但有累积文本时，返回已收到的部分
         if (accumulatedText.length > 0) {
-          console.log('[Clawdbot] 响应超时，返回已累积文本:', accumulatedText.substring(0, 200));
+          console.log('[OpenClaw] 响应超时，返回已累积文本:', accumulatedText.substring(0, 200));
           splitter.finish(); // 刷新剩余文本
           resolve(accumulatedText);
         } else {
-          reject(new Error('Clawdbot 响应超时'));
+          reject(new Error('OpenClaw 响应超时'));
         }
       }, 180000);
 
@@ -478,23 +478,23 @@ async function chatWithClawdbot(message) {
         try {
           const msg = JSON.parse(data.toString());
 
-          // 详细日志：记录所有 Clawdbot 消息（调试）
+          // 详细日志：记录所有 OpenClaw 消息（调试）
           if (msg.type === 'event') {
-            console.log(`[Clawdbot] 事件: ${msg.event}, payload keys: ${Object.keys(msg.payload || {}).join(',')}, state: ${msg.payload?.state || '-'}`);
+            console.log(`[OpenClaw] 事件: ${msg.event}, payload keys: ${Object.keys(msg.payload || {}).join(',')}, state: ${msg.payload?.state || '-'}`);
           } else if (msg.type === 'res' && msg.id !== 'connect-1') {
-            console.log(`[Clawdbot] 响应: id=${msg.id}, ok=${msg.ok}`);
+            console.log(`[OpenClaw] 响应: id=${msg.id}, ok=${msg.ok}`);
           }
 
           // 1. 处理 chat.send 请求的直接响应（错误检测）
           if (msg.type === 'res' && msg.id === chatReqId) {
             if (!msg.ok) {
-              console.error('[Clawdbot] chat.send 请求被拒绝:', msg.error?.message || JSON.stringify(msg.error));
-              clawdbotWs.removeListener('message', chatHandler);
+              console.error('[OpenClaw] chat.send 请求被拒绝:', msg.error?.message || JSON.stringify(msg.error));
+              openclawWs.removeListener('message', chatHandler);
               clearTimeout(timeout);
               reject(new Error(msg.error?.message || 'chat.send 请求失败'));
               return;
             }
-            console.log('[Clawdbot] chat.send 请求已接受');
+            console.log('[OpenClaw] chat.send 请求已接受');
           }
 
           // 2. 监听 chat 流式事件（累积文本 + 分句处理）
@@ -510,8 +510,8 @@ async function chatWithClawdbot(message) {
 
             // 检查完成状态
             if (payload.state === 'final' || payload.done === true) {
-              console.log('[Clawdbot] 收到 chat final 事件');
-              clawdbotWs.removeListener('message', chatHandler);
+              console.log('[OpenClaw] 收到 chat final 事件');
+              openclawWs.removeListener('message', chatHandler);
 
               // 刷新分割器剩余文本
               splitter.finish();
@@ -519,13 +519,13 @@ async function chatWithClawdbot(message) {
               // 如果流式已累积文本，直接使用
               if (accumulatedText.length > 0) {
                 clearTimeout(timeout);
-                console.log('[Clawdbot] AI 回复 (流式):', accumulatedText.substring(0, 200));
+                console.log('[OpenClaw] AI 回复 (流式):', accumulatedText.substring(0, 200));
                 resolve(accumulatedText);
                 return;
               }
 
               // 否则从历史记录获取
-              clawdbotRequest('chat.history', {
+              openclawRequest('chat.history', {
                 sessionKey: 'agent:main:main',
                 limit: 2
               }).then(history => {
@@ -535,7 +535,7 @@ async function chatWithClawdbot(message) {
                   if (lastAssistant && lastAssistant.content) {
                     const textContent = lastAssistant.content.find(c => c.type === 'text');
                     if (textContent) {
-                      console.log('[Clawdbot] AI 回复 (历史):', textContent.text.substring(0, 200));
+                      console.log('[OpenClaw] AI 回复 (历史):', textContent.text.substring(0, 200));
                       resolve(textContent.text);
                       return;
                     }
@@ -549,21 +549,21 @@ async function chatWithClawdbot(message) {
             }
           }
 
-          // 3. 监听所有其他事件（Clawdbot 可能通过不同事件名返回结果）
+          // 3. 监听所有其他事件（OpenClaw 可能通过不同事件名返回结果）
           if (msg.type === 'event' && msg.event !== 'chat' && msg.event !== 'connect.challenge') {
             const payload = msg.payload || {};
             // 尝试从任意事件中提取文本
             if (payload.text && typeof payload.text === 'string') {
-              console.log(`[Clawdbot] 从事件 "${msg.event}" 收到文本: ${payload.text.substring(0, 100)}`);
+              console.log(`[OpenClaw] 从事件 "${msg.event}" 收到文本: ${payload.text.substring(0, 100)}`);
               accumulatedText += payload.text;
               splitter.addText(payload.text);
             }
             if (payload.message && typeof payload.message === 'string') {
-              console.log(`[Clawdbot] 从事件 "${msg.event}" 收到 message: ${payload.message.substring(0, 100)}`);
+              console.log(`[OpenClaw] 从事件 "${msg.event}" 收到 message: ${payload.message.substring(0, 100)}`);
               if (!accumulatedText) accumulatedText = payload.message;
             }
             if (payload.result && typeof payload.result === 'string') {
-              console.log(`[Clawdbot] 从事件 "${msg.event}" 收到 result: ${payload.result.substring(0, 100)}`);
+              console.log(`[OpenClaw] 从事件 "${msg.event}" 收到 result: ${payload.result.substring(0, 100)}`);
               if (!accumulatedText) accumulatedText = payload.result;
             }
           }
@@ -572,10 +572,10 @@ async function chatWithClawdbot(message) {
         }
       };
 
-      clawdbotWs.on('message', chatHandler);
+      openclawWs.on('message', chatHandler);
 
       // 发送消息
-      clawdbotWs.send(JSON.stringify({
+      openclawWs.send(JSON.stringify({
         type: 'req',
         id: chatReqId,
         method: 'chat.send',
@@ -587,7 +587,7 @@ async function chatWithClawdbot(message) {
       }));
     });
   } catch (error) {
-    console.error('[Clawdbot] 聊天失败:', error.message);
+    console.error('[OpenClaw] 聊天失败:', error.message);
     throw error;
   }
 }
@@ -620,21 +620,22 @@ function createWindow() {
   });
 }
 
-// ===== 命令处理（通过 Clawdbot） =====
+// ===== 命令处理（通过 OpenClaw） =====
 ipcMain.handle('openclaw:executeCommand', async (event, command) => {
   console.log('[CMD] 收到命令:', command);
 
   try {
-    const reply = await chatWithClawdbot(command);
-    console.log(`[CMD] Clawdbot 回复: ${reply}`);
-    return { type: 'chat', data: null, message: reply };
+    const reply = await chatWithOpenClaw(command);
+    console.log(`[CMD] OpenClaw 回复: ${reply}`);
+    const streamingTTSActive = sentenceCounter > 0;
+    return { type: 'chat', data: null, message: reply, streamingTTSActive };
   } catch (error) {
-    console.error('[CMD] Clawdbot 调用失败:', error.message);
+    console.error('[CMD] OpenClaw 调用失败:', error.message);
     // 降级处理：返回友好提示
     return {
       type: 'chat',
       data: null,
-      message: 'Clawdbot 暂时无法连接，请确保 clawdbot 服务正在运行。'
+      message: 'OpenClaw 暂时无法连接，请确保 openclaw 服务正在运行。'
     };
   }
 });
@@ -991,11 +992,11 @@ ipcMain.handle('file:showInFolder', async (event, filePath) => {
 // ===== 应用生命周期 =====
 app.whenReady().then(() => {
   createWindow();
-  // 预连接 Clawdbot（不等待，后台连接）
-  connectClawdbot().then(() => {
-    console.log('[启动] Clawdbot 预连接成功');
+  // 预连接 OpenClaw（不等待，后台连接）
+  connectOpenClaw().then(() => {
+    console.log('[启动] OpenClaw 预连接成功');
   }).catch(err => {
-    console.warn('[启动] Clawdbot 预连接失败（首次对话时会重试）:', err.message);
+    console.warn('[启动] OpenClaw 预连接失败（首次对话时会重试）:', err.message);
   });
   // 注意：Deepgram 不在此处预连接，而是在首次 startListening 时创建
   // 因为 Deepgram 连接需要前端准备好音频流

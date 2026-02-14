@@ -51,8 +51,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     // 首个句子事件（用于前端立即显示）
     onFirstSentence: (callback) => {
       const handler = (event, data) => callback(data);
-      ipcRenderer.on('clawdbot:firstSentence', handler);
-      return () => ipcRenderer.removeListener('clawdbot:firstSentence', handler);
+      ipcRenderer.on('openclaw:firstSentence', handler);
+      return () => ipcRenderer.removeListener('openclaw:firstSentence', handler);
     },
 
     // 清理所有监听器
@@ -63,7 +63,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
       ipcRenderer.removeAllListeners('deepgram:closed');
       ipcRenderer.removeAllListeners('deepgram:utteranceEnd');
       ipcRenderer.removeAllListeners('tts:audioChunk');
-      ipcRenderer.removeAllListeners('clawdbot:firstSentence');
+      ipcRenderer.removeAllListeners('openclaw:firstSentence');
     }
   },
 

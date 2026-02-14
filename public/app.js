@@ -49,7 +49,7 @@ const CHARACTER_PROFILES = {
       thinking: { r: 245, g: 158, b: 11 },
       speaking: { r: 118, g: 75, b: 162 }
     },
-    defaultVoice: 'Lovely_Girl'
+    defaultVoice: 'Kore'
   },
   amy: {
     id: 'amy',
@@ -87,7 +87,7 @@ const CHARACTER_PROFILES = {
       thinking: { r: 255, g: 183, b: 178 },
       speaking: { r: 255, g: 134, b: 154 }
     },
-    defaultVoice: 'Arrogant_Miss'
+    defaultVoice: 'Aoede'
   },
   cat: {
     id: 'cat',
@@ -118,7 +118,7 @@ const CHARACTER_PROFILES = {
       thinking: { r: 255, g: 213, b: 79 },
       speaking: { r: 171, g: 130, b: 255 }
     },
-    defaultVoice: 'Sweet_Girl_2'
+    defaultVoice: 'Dione'
   },
   robot: {
     id: 'robot',
@@ -149,7 +149,7 @@ const CHARACTER_PROFILES = {
       thinking: { r: 255, g: 200, b: 0 },
       speaking: { r: 0, g: 150, b: 255 }
     },
-    defaultVoice: 'Robot_Armor'
+    defaultVoice: 'Sao'
   }
 };
 
@@ -1093,8 +1093,8 @@ async function handleSyncTask(command, isGoodbye) {
     lastAIResponse = cleanedMessage;
 
     // 流式 TTS 已经在后台播放（由 initStreamingTTS 监听事件驱动）
-    // 如果没有收到音频块（例如 Clawdbot 返回空），使用传统 TTS 作为备选
-    if (audioQueue.length === 0 && !isPlayingQueue) {
+    // 如果没有收到音频块且主进程也没有启动流式 TTS，使用传统 TTS 作为备选
+    if (!result.streamingTTSActive && audioQueue.length === 0 && !isPlayingQueue) {
       // 没有收到流式音频，使用传统 TTS
       setAppState('speaking');
       showBubbleWithViewBtn(cleanedMessage);
@@ -1193,77 +1193,54 @@ const voiceList = document.getElementById('voice-list');
 const voiceSelectBtn = document.getElementById('voice-select-btn');
 const closeVoicePanel = document.getElementById('close-voice-panel');
 
-// MiniMax 系统音色列表（中文 + 英文）
+// Gemini TTS 音色列表（30种音色，自动检测语言）
 const VOICE_OPTIONS = [
   // ===== 推荐 =====
   { group: '推荐', lang: 'all', voices: [
-    { id: 'Lovely_Girl',         icon: 'mdi:ribbon', name: '可爱女孩',     desc: '甜美可爱', gender: 'female' },
-    { id: 'Lively_Girl',         icon: 'mdi:star-four-points', name: '活泼女孩',     desc: '元气满满', gender: 'female' },
-    { id: 'Decent_Boy',          icon: 'mdi:account', name: '阳光男孩',     desc: '清爽干净', gender: 'male' },
-    { id: 'Friendly_Person',     icon: 'mdi:emoticon-happy', name: '友善人士',     desc: '亲切自然', gender: 'female' },
+    { id: 'Kore',    icon: 'mdi:ribbon', name: 'Kore',    desc: '温暖友好', gender: 'female' },
+    { id: 'Puck',    icon: 'mdi:star-four-points', name: 'Puck',    desc: '活泼俏皮', gender: 'male' },
+    { id: 'Charon',  icon: 'mdi:account', name: 'Charon',  desc: '沉稳可靠', gender: 'male' },
+    { id: 'Aoede',   icon: 'mdi:emoticon-happy', name: 'Aoede',   desc: '优雅动听', gender: 'female' },
   ]},
-  // ===== 中文女声 =====
-  { group: '中文女声', lang: 'zh', voices: [
-    { id: 'Chinese (Mandarin)_Cute_Spirit',       icon: 'mdi:face-woman-shimmer', name: '可爱精灵',   desc: '灵动可爱', gender: 'female' },
-    { id: 'Chinese (Mandarin)_Warm_Girl',         icon: 'mdi:flower', name: '温暖女孩',   desc: '温柔治愈', gender: 'female' },
-    { id: 'Chinese (Mandarin)_Soft_Girl',         icon: 'mdi:cloud', name: '软萌女孩',   desc: '软绵绵', gender: 'female' },
-    { id: 'Chinese (Mandarin)_Crisp_Girl',        icon: 'mdi:bell', name: '清脆女孩',   desc: '清亮脆嫩', gender: 'female' },
-    { id: 'Chinese (Mandarin)_BashfulGirl',       icon: 'mdi:emoticon-blush', name: '害羞女孩',   desc: '含蓄害羞', gender: 'female' },
-    { id: 'Chinese (Mandarin)_Warm_Bestie',       icon: 'mdi:heart', name: '暖心闺蜜',   desc: '亲切温暖', gender: 'female' },
-    { id: 'Chinese (Mandarin)_IntellectualGirl',  icon: 'mdi:book-open-page-variant', name: '知性女孩',   desc: '知性优雅', gender: 'female' },
-    { id: 'Chinese (Mandarin)_Sweet_Lady',        icon: 'mdi:flower-rose', name: '甜美女士',   desc: '成熟甜美', gender: 'female' },
-    { id: 'Chinese (Mandarin)_Mature_Woman',      icon: 'mdi:account-tie', name: '成熟女性',   desc: '沉稳大气', gender: 'female' },
-    { id: 'Chinese (Mandarin)_News_Anchor',       icon: 'mdi:television', name: '新闻主播',   desc: '标准播音', gender: 'female' },
-    { id: 'Arrogant_Miss',                        icon: 'mdi:crown', name: '傲娇小姐',   desc: '高冷傲娇', gender: 'female' },
-    { id: 'Sweet_Girl_2',                         icon: 'mdi:candy', name: '甜甜女孩',   desc: '甜蜜温柔', gender: 'female' },
-    { id: 'Exuberant_Girl',                       icon: 'mdi:party-popper', name: '热情女孩',   desc: '活力四射', gender: 'female' },
-    { id: 'Inspirational_girl',                   icon: 'mdi:sparkles', name: '元气少女',   desc: '正能量', gender: 'female' },
-    { id: 'Calm_Woman',                           icon: 'mdi:yoga', name: '平静女性',   desc: '沉稳安详', gender: 'female' },
-    { id: 'Wise_Woman',                           icon: 'mdi:book', name: '智慧女性',   desc: '专业成熟', gender: 'female' },
-    { id: 'Imposing_Manner',                      icon: 'mdi:chess-queen', name: '气场女王',   desc: '霸气十足', gender: 'female' },
+  // ===== 女声 =====
+  { group: '女声', lang: 'all', voices: [
+    { id: 'Kore',    icon: 'mdi:face-woman-shimmer', name: 'Kore',    desc: '温暖友好', gender: 'female' },
+    { id: 'Aoede',   icon: 'mdi:flower', name: 'Aoede',   desc: '优雅动听', gender: 'female' },
+    { id: 'Leda',    icon: 'mdi:cloud', name: 'Leda',    desc: '柔和舒缓', gender: 'female' },
+    { id: 'Callisto', icon: 'mdi:bell', name: 'Callisto', desc: '清脆明亮', gender: 'female' },
+    { id: 'Dione',   icon: 'mdi:emoticon-blush', name: 'Dione',   desc: '甜美可爱', gender: 'female' },
+    { id: 'Elara',   icon: 'mdi:heart', name: 'Elara',   desc: '亲切温柔', gender: 'female' },
+    { id: 'Io',      icon: 'mdi:book-open-page-variant', name: 'Io',      desc: '知性优雅', gender: 'female' },
+    { id: 'Thebe',   icon: 'mdi:flower-rose', name: 'Thebe',   desc: '成熟稳重', gender: 'female' },
+    { id: 'Himalia', icon: 'mdi:account-tie', name: 'Himalia', desc: '专业干练', gender: 'female' },
+    { id: 'Carme',   icon: 'mdi:television', name: 'Carme',   desc: '播音腔调', gender: 'female' },
+    { id: 'Ananke',  icon: 'mdi:crown', name: 'Ananke',  desc: '高贵典雅', gender: 'female' },
+    { id: 'Lysithea', icon: 'mdi:candy', name: 'Lysithea', desc: '甜蜜温柔', gender: 'female' },
+    { id: 'Pasiphae', icon: 'mdi:party-popper', name: 'Pasiphae', desc: '活力四射', gender: 'female' },
+    { id: 'Sinope',  icon: 'mdi:sparkles', name: 'Sinope',  desc: '元气满满', gender: 'female' },
+    { id: 'Isonoe',  icon: 'mdi:yoga', name: 'Isonoe',  desc: '平静安详', gender: 'female' },
   ]},
-  // ===== 中文男声 =====
-  { group: '中文男声', lang: 'zh', voices: [
-    { id: 'Chinese (Mandarin)_Gentle_Youth',       icon: 'mdi:weather-night', name: '温柔少年',   desc: '温柔细腻', gender: 'male' },
-    { id: 'Chinese (Mandarin)_Straightforward_Boy',icon: 'mdi:arm-flex', name: '直爽男孩',   desc: '直率干脆', gender: 'male' },
-    { id: 'Chinese (Mandarin)_Pure-hearted_Boy',   icon: 'mdi:heart-outline', name: '纯真男孩',   desc: '纯净清澈', gender: 'male' },
-    { id: 'Chinese (Mandarin)_Gentleman',          icon: 'mdi:hat-fedora', name: '绅士',       desc: '儒雅有礼', gender: 'male' },
-    { id: 'Chinese (Mandarin)_Male_Announcer',     icon: 'mdi:microphone', name: '男播音员',   desc: '浑厚播音', gender: 'male' },
-    { id: 'Chinese (Mandarin)_Radio_Host',         icon: 'mdi:radio', name: '电台主持',   desc: '深夜电台', gender: 'male' },
-    { id: 'Chinese (Mandarin)_Reliable_Executive', icon: 'mdi:tie', name: '靠谱高管',   desc: '稳重专业', gender: 'male' },
-    { id: 'Young_Knight',                          icon: 'mdi:sword-cross', name: '少年骑士',   desc: '少年感', gender: 'male' },
-    { id: 'Casual_Guy',                            icon: 'mdi:sunglasses', name: '随性男生',   desc: '轻松随意', gender: 'male' },
-    { id: 'Patient_Man',                           icon: 'mdi:tree', name: '耐心男士',   desc: '温和耐心', gender: 'male' },
-    { id: 'Deep_Voice_Man',                        icon: 'mdi:microphone-variant', name: '低沉男声',   desc: '浑厚有力', gender: 'male' },
-    { id: 'Determined_Man',                        icon: 'mdi:target', name: '坚毅男士',   desc: '果断坚定', gender: 'male' },
-    { id: 'Elegant_Man',                           icon: 'mdi:glass-wine', name: '优雅男士',   desc: '儒雅精致', gender: 'male' },
-    { id: 'Robot_Armor',                           icon: 'mdi:robot', name: '机甲战士',   desc: '机器人', gender: 'male' },
-  ]},
-  // ===== 英文女声 =====
-  { group: 'English Female', lang: 'en', voices: [
-    { id: 'English_expressive_narrator',    icon: 'mdi:book-open', name: 'Narrator',       desc: 'Expressive storyteller', gender: 'female' },
-    { id: 'English_radiant_girl',           icon: 'mdi:star-four-points', name: 'Radiant Girl',   desc: 'Bright and cheerful', gender: 'female' },
-    { id: 'English_compelling_lady',        icon: 'mdi:briefcase', name: 'Compelling Lady',desc: 'Professional tone', gender: 'female' },
-    { id: 'English_sweet_lady',             icon: 'mdi:flower', name: 'Sweet Lady',     desc: 'Gentle and warm', gender: 'female' },
-    { id: 'English_warm_woman',             icon: 'mdi:coffee', name: 'Warm Woman',     desc: 'Comforting voice', gender: 'female' },
-    { id: 'English_cute_girl',              icon: 'mdi:ribbon', name: 'Cute Girl',      desc: 'Adorable tone', gender: 'female' },
-    { id: 'English_lively_girl',            icon: 'mdi:party-popper', name: 'Lively Girl',    desc: 'Energetic vibe', gender: 'female' },
-    { id: 'English_confident_woman',        icon: 'mdi:account-tie', name: 'Confident Woman',desc: 'Strong presence', gender: 'female' },
-  ]},
-  // ===== 英文男声 =====
-  { group: 'English Male', lang: 'en', voices: [
-    { id: 'English_magnetic_male',          icon: 'mdi:microphone', name: 'Magnetic Male',  desc: 'Deep and rich', gender: 'male' },
-    { id: 'English_calm_man',               icon: 'mdi:yoga', name: 'Calm Man',       desc: 'Soothing voice', gender: 'male' },
-    { id: 'English_gentle_man',             icon: 'mdi:hat-fedora', name: 'Gentleman',      desc: 'Refined tone', gender: 'male' },
-    { id: 'English_casual_guy',             icon: 'mdi:sunglasses', name: 'Casual Guy',     desc: 'Relaxed style', gender: 'male' },
-    { id: 'English_young_man',              icon: 'mdi:account', name: 'Young Man',      desc: 'Youthful energy', gender: 'male' },
-    { id: 'English_professional_man',       icon: 'mdi:tie', name: 'Professional',   desc: 'Business tone', gender: 'male' },
-    { id: 'English_storyteller',            icon: 'mdi:book-open-page-variant', name: 'Storyteller',    desc: 'Narrative voice', gender: 'male' },
-    { id: 'English_friendly_man',           icon: 'mdi:emoticon-happy', name: 'Friendly Man',   desc: 'Approachable', gender: 'male' },
+  // ===== 男声 =====
+  { group: '男声', lang: 'all', voices: [
+    { id: 'Puck',    icon: 'mdi:weather-night', name: 'Puck',    desc: '活泼俏皮', gender: 'male' },
+    { id: 'Charon',  icon: 'mdi:arm-flex', name: 'Charon',  desc: '沉稳可靠', gender: 'male' },
+    { id: 'Fenrir',  icon: 'mdi:heart-outline', name: 'Fenrir',  desc: '强劲有力', gender: 'male' },
+    { id: 'Orus',    icon: 'mdi:hat-fedora', name: 'Orus',    desc: '儒雅绅士', gender: 'male' },
+    { id: 'Proteus', icon: 'mdi:microphone', name: 'Proteus', desc: '浑厚播音', gender: 'male' },
+    { id: 'Triton',  icon: 'mdi:radio', name: 'Triton',  desc: '深沉磁性', gender: 'male' },
+    { id: 'Nereid',  icon: 'mdi:tie', name: 'Nereid',  desc: '专业稳重', gender: 'male' },
+    { id: 'Larissa', icon: 'mdi:sword-cross', name: 'Larissa', desc: '年轻活力', gender: 'male' },
+    { id: 'Galatea', icon: 'mdi:sunglasses', name: 'Galatea', desc: '轻松随意', gender: 'male' },
+    { id: 'Despina', icon: 'mdi:tree', name: 'Despina', desc: '温和耐心', gender: 'male' },
+    { id: 'Thalassa', icon: 'mdi:microphone-variant', name: 'Thalassa', desc: '低沉有力', gender: 'male' },
+    { id: 'Naiad',   icon: 'mdi:target', name: 'Naiad',   desc: '果断坚定', gender: 'male' },
+    { id: 'Halimede', icon: 'mdi:glass-wine', name: 'Halimede', desc: '优雅精致', gender: 'male' },
+    { id: 'Sao',     icon: 'mdi:robot', name: 'Sao',     desc: '机械感', gender: 'male' },
+    { id: 'Laomedeia', icon: 'mdi:account', name: 'Laomedeia', desc: '清爽干净', gender: 'male' },
   ]},
 ];
 
-let currentSelectedVoice = 'Lovely_Girl';
+let currentSelectedVoice = 'Kore';
 let currentFilter = 'all'; // all | zh | en
 let previewingVoice = null;
 
@@ -1328,7 +1305,7 @@ async function previewVoice(voiceId, voiceName) {
   if (previewingVoice === voiceId) return;
 
   previewingVoice = voiceId;
-  const previewText = voiceId.startsWith('English') ? 'Hello! Nice to meet you.' : '你好，很高兴认识你！';
+  const previewText = '你好，很高兴认识你！';
 
   try {
     // 临时设置音色

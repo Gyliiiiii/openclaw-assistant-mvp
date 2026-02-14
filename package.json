@@ -25,6 +25,7 @@
   "dependencies": {
     "@deepgram/sdk": "^4.11.3",
     "dotenv": "^17.2.4",
+    "node-fetch": "^2.7.0",
     "ws": "^8.19.0"
   },
   "build": {
@@ -41,11 +42,17 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         },
         {
           "target": "zip",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ],
       "hardenedRuntime": true,
