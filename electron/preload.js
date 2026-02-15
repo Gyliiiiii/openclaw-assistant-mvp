@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getEmails: () => ipcRenderer.invoke('openclaw:getEmails'),
   getDailyBriefing: () => ipcRenderer.invoke('openclaw:getDailyBriefing'),
   executeCommand: (command) => ipcRenderer.invoke('openclaw:executeCommand', command),
+  abortAgent: () => ipcRenderer.invoke('openclaw:abort'),
 
   // Deepgram 语音识别
   deepgram: {

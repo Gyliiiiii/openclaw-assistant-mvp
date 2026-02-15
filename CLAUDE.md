@@ -74,7 +74,7 @@ Copy `.env.example` to `.env` and fill in your API keys.
 
 **Preload Script** (`electron/preload.js`)
 - Secure IPC bridge using contextBridge
-- Exposed APIs: deepgram (STT + streaming TTS events), tts (voice config), task, file, window
+- Exposed APIs: deepgram (STT + streaming TTS events), tts (voice config), task, file, window, abortAgent
 
 ### Key Architectural Patterns
 
@@ -150,13 +150,45 @@ const isAsyncTask = asyncKeywords.some(keyword => command.includes(keyword));
 
 ### OpenClaw Integration
 
-**WebSocket Protocol**
+**WebSocket Protocol (agent 方法)**
 1. Connect → receive `connect.challenge` event
 2. Send `connect` request for token authentication
-3. Send `chat.send` request with sessionKey and idempotencyKey
-4. Receive streaming `chat` events with text chunks
-5. Detect completion via `state: 'final'` or `done: true`
-6. 180-second timeout for complex operations (searches, tool calls)
+3. Send `agent` request with message, sessionKey, idempotencyKey
+4. Receive `res` with `status: 'accepted'` and `runId`
+5. Receive streaming `agent` events (`stream: 'text'`/`'content'`/`'lifecycle'`/`'tool'`)
+6. Receive `chat` final event with complete message in `message.content`
+7. Support `agent.abort` with `runId` to cancel in-progress generation
+8. 180-second timeout for complex operations (searches, tool calls)
+
+**Agent Request Format**
+```javascript
+{
+  type: 'req',
+  id: 'agent-1',
+  method: 'agent',
+  params: {
+    message: '用户消息',
+    sessionKey: 'agent:main:desktop:dm:local',  // getSessionKey() 生成
+    idempotencyKey: 'agent-xxx-xxx'
+  }
+}
+```
+
+**Agent Event Streams**
+- `stream: 'text'` / `'content'` — 流式文本块，`data` 为文本字符串
+- `stream: 'lifecycle'` — 生命周期事件，`data.phase === 'end'` 表示完成
+- `stream: 'tool'` — 工具调用事件
+
+**Agent Abort (中止生成)**
+- 用户打断 TTS 时自动触发 "双中断"：本地 TTS 停止 + `agent.abort`
+- `interruptTTS()` → `tts.stop()` → `abortCurrentAgent()` 发送 `agent.abort` 请求
+- Fire-and-forget 模式，5 秒超时清理
+- `currentAgentRunId` 追踪当前执行，完成/超时/中止时清空
+
+**Session Key 策略**
+- Channel ID: `desktop`
+- 生成规则: `agent:<agentId>:<channelId>:dm:local`
+- 默认值: `agent:main:desktop:dm:local`
 
 **Sentence Splitting for Streaming TTS**
 - SentenceSplitter class with regex: `/[。！？.!?]\s*/g`
@@ -256,9 +288,10 @@ Users can interrupt TTS playback by:
 
 Interruption flow:
 1. Call `interruptTTS()` to stop audio and clear the queue
-2. Display "Interrupted" bubble with a button to view the full response
-3. Transition to `listening` state
-4. Immediately start recording
+2. Call `abortAgent()` to send `agent.abort` to Gateway (stops AI generation)
+3. Display "Interrupted" bubble with a button to view the full response
+4. Transition to `listening` state
+5. Immediately start recording
 
 ## Key Timing Configurations
 
@@ -270,7 +303,8 @@ Interruption flow:
 | Deepgram Connect Timeout | 10,000ms | Initial connection timeout |
 | Deepgram Keep-Alive | 8,000ms | Heartbeat interval |
 | OpenClaw Default Timeout | 30,000ms | Standard request timeout |
-| OpenClaw Chat Timeout | 180,000ms | Complex operations (search, tools) |
+| OpenClaw Agent Timeout | 180,000ms | Complex operations (search, tools) |
+| OpenClaw Abort Timeout | 5,000ms | Fire-and-forget abort cleanup |
 
 ## Important Implementation Notes
 
@@ -296,5 +330,6 @@ Interruption flow:
 - [ ] Window minimize/restore preserves position
 - [ ] TTS plays sentences in correct order with no gaps
 - [ ] Deepgram connection persists across multiple listening sessions
-- [ ] OpenClaw connection auto-reconnects on loss
+- [ ] OpenClaw agent method works (not chat.send)
+- [ ] Agent abort stops backend generation on interruption
 - [ ] Chinese speech recognition works correctly (zh-CN)

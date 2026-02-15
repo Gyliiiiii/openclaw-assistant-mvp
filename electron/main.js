@@ -178,6 +178,12 @@ let openclawWs = null;
 let openclawConnected = false;
 let openclawRequestId = 0;
 let openclawPendingRequests = new Map();
+let currentAgentRunId = null;  // 追踪当前 agent 执行的 runId
+
+const OPENCLAW_CHANNEL_ID = 'desktop';
+function getSessionKey(agentId = 'main') {
+  return `agent:${agentId}:${OPENCLAW_CHANNEL_ID}:dm:local`;
+}
 
 // ===== 句子分割器 =====
 class SentenceSplitter {
@@ -366,19 +372,6 @@ function connectOpenClaw() {
             }
           }
         }
-
-        // 处理聊天事件（流式响应）
-        if (msg.type === 'event' && msg.event === 'chat') {
-          const pending = openclawPendingRequests.get('chat-stream');
-          if (pending && msg.payload) {
-            if (msg.payload.done) {
-              openclawPendingRequests.delete('chat-stream');
-              pending.resolve(pending.fullText || '');
-            } else if (msg.payload.text) {
-              pending.fullText = (pending.fullText || '') + msg.payload.text;
-            }
-          }
-        }
       } catch (e) {
         console.error('[OpenClaw] 消息解析错误:', e);
       }
@@ -425,18 +418,15 @@ function openclawRequest(method, params = {}) {
   });
 }
 
-// 发送聊天消息到 OpenClaw（支持流式句子分发）
+// 发送聊天消息到 OpenClaw（使用 agent 方法，支持流式句子分发）
 async function chatWithOpenClaw(message) {
   try {
     await connectOpenClaw();
 
     console.log(`[OpenClaw] 发送消息: "${message}"`);
 
-    // 生成唯一的 idempotencyKey
-    const idempotencyKey = `openclaw-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
     // 发送消息并等待完成
-    const chatReqId = `chat-${++openclawRequestId}`;
+    const chatReqId = `agent-${++openclawRequestId}`;
     let accumulatedText = '';
 
     // 重置句子计数器和 TTS 队列
@@ -461,8 +451,9 @@ async function chatWithOpenClaw(message) {
       // 复杂任务（搜索、工具调用等）可能需要较长时间，超时设为 180 秒
       const timeout = setTimeout(() => {
         if (openclawWs) {
-          openclawWs.removeListener('message', chatHandler);
+          openclawWs.removeListener('message', agentHandler);
         }
+        currentAgentRunId = null;
         // 超时但有累积文本时，返回已收到的部分
         if (accumulatedText.length > 0) {
           console.log('[OpenClaw] 响应超时，返回已累积文本:', accumulatedText.substring(0, 200));
@@ -474,97 +465,129 @@ async function chatWithOpenClaw(message) {
       }, 180000);
 
       // 监听消息
-      const chatHandler = (data) => {
+      const agentHandler = (data) => {
         try {
           const msg = JSON.parse(data.toString());
 
           // 详细日志：记录所有 OpenClaw 消息（调试）
           if (msg.type === 'event') {
-            console.log(`[OpenClaw] 事件: ${msg.event}, payload keys: ${Object.keys(msg.payload || {}).join(',')}, state: ${msg.payload?.state || '-'}`);
+            console.log(`[OpenClaw] 事件: ${msg.event}, payload:`, JSON.stringify(msg.payload || {}).substring(0, 300));
           } else if (msg.type === 'res' && msg.id !== 'connect-1') {
-            console.log(`[OpenClaw] 响应: id=${msg.id}, ok=${msg.ok}`);
+            console.log(`[OpenClaw] 响应: id=${msg.id}, ok=${msg.ok}, payload:`, JSON.stringify(msg.payload || {}).substring(0, 500));
           }
 
-          // 1. 处理 chat.send 请求的直接响应（错误检测）
+          // 1. 处理 agent 请求的响应
           if (msg.type === 'res' && msg.id === chatReqId) {
             if (!msg.ok) {
-              console.error('[OpenClaw] chat.send 请求被拒绝:', msg.error?.message || JSON.stringify(msg.error));
-              openclawWs.removeListener('message', chatHandler);
+              console.error('[OpenClaw] agent 请求失败:', msg.error?.message || JSON.stringify(msg.error));
+              openclawWs.removeListener('message', agentHandler);
               clearTimeout(timeout);
-              reject(new Error(msg.error?.message || 'chat.send 请求失败'));
+              currentAgentRunId = null;
+              reject(new Error(msg.error?.message || 'agent 请求失败'));
               return;
             }
-            console.log('[OpenClaw] chat.send 请求已接受');
+
+            // 提取 runId（接受确认）
+            if (msg.payload?.runId) {
+              currentAgentRunId = msg.payload.runId;
+              console.log(`[OpenClaw] agent 已接受, runId: ${currentAgentRunId}`);
+            }
+
+            // status=accepted 是接受确认，不是完成，继续等待流式事件
+            if (msg.payload?.status === 'accepted') {
+              return;
+            }
+
+            // 非 accepted 的 res 帧视为完成信号
+            console.log('[OpenClaw] 收到 agent res 完成帧');
+            openclawWs.removeListener('message', agentHandler);
+            clearTimeout(timeout);
+            currentAgentRunId = null;
+
+            splitter.finish();
+
+            if (accumulatedText.length > 0) {
+              console.log('[OpenClaw] AI 回复 (流式):', accumulatedText.substring(0, 200));
+              resolve(accumulatedText);
+              return;
+            }
+
+            if (msg.payload && typeof msg.payload === 'string') {
+              resolve(msg.payload);
+              return;
+            }
+            if (msg.payload?.text) {
+              resolve(msg.payload.text);
+              return;
+            }
+
+            resolve('收到了，但没有找到回复内容。');
+            return;
           }
 
-          // 2. 监听 chat 流式事件（累积文本 + 分句处理）
+          // 2. 监听 agent 流式事件
+          if (msg.type === 'event' && msg.event === 'agent') {
+            const payload = msg.payload || {};
+
+            // 提取 runId
+            if (payload.runId && !currentAgentRunId) {
+              currentAgentRunId = payload.runId;
+              console.log(`[OpenClaw] 获取到 runId: ${currentAgentRunId}`);
+            }
+
+            // 根据 stream 字段分发处理
+            if (payload.stream === 'text' || payload.stream === 'content') {
+              const textChunk = typeof payload.data === 'string' ? payload.data : '';
+              if (textChunk) {
+                accumulatedText += textChunk;
+                splitter.addText(textChunk);
+              }
+            } else if (payload.stream === 'lifecycle') {
+              if (payload.data?.phase === 'end') {
+                console.log('[OpenClaw] agent lifecycle end');
+                // 如果已有累积文本（通过 agent 流式拿到的），直接完成
+                if (accumulatedText.length > 0) {
+                  openclawWs.removeListener('message', agentHandler);
+                  clearTimeout(timeout);
+                  currentAgentRunId = null;
+                  splitter.finish();
+                  console.log('[OpenClaw] AI 回复 (agent 流式):', accumulatedText.substring(0, 200));
+                  resolve(accumulatedText);
+                  return;
+                }
+              }
+            } else if (payload.stream === 'tool') {
+              console.log(`[OpenClaw] 工具事件: ${JSON.stringify(payload.data || {}).substring(0, 150)}`);
+            }
+          }
+
+          // 3. 监听 chat final 事件（agent 完成后 Gateway 发送完整文本）
           if (msg.type === 'event' && msg.event === 'chat') {
             const payload = msg.payload || {};
 
-            // 累积流式文本
-            if (payload.text) {
-              accumulatedText += payload.text;
-              // 将新文本喂给分割器
-              splitter.addText(payload.text);
-            }
-
-            // 检查完成状态
             if (payload.state === 'final' || payload.done === true) {
               console.log('[OpenClaw] 收到 chat final 事件');
-              openclawWs.removeListener('message', chatHandler);
+              openclawWs.removeListener('message', agentHandler);
+              clearTimeout(timeout);
+              currentAgentRunId = null;
 
-              // 刷新分割器剩余文本
-              splitter.finish();
-
-              // 如果流式已累积文本，直接使用
-              if (accumulatedText.length > 0) {
-                clearTimeout(timeout);
-                console.log('[OpenClaw] AI 回复 (流式):', accumulatedText.substring(0, 200));
-                resolve(accumulatedText);
-                return;
+              // 从 message.content 提取完整文本
+              if (!accumulatedText && payload.message?.content) {
+                const textContent = payload.message.content.find(c => c.type === 'text');
+                if (textContent?.text) {
+                  accumulatedText = textContent.text;
+                  splitter.addText(textContent.text);
+                }
               }
 
-              // 否则从历史记录获取
-              openclawRequest('chat.history', {
-                sessionKey: 'agent:main:main',
-                limit: 2
-              }).then(history => {
-                clearTimeout(timeout);
-                if (history?.messages) {
-                  const lastAssistant = history.messages.find(m => m.role === 'assistant');
-                  if (lastAssistant && lastAssistant.content) {
-                    const textContent = lastAssistant.content.find(c => c.type === 'text');
-                    if (textContent) {
-                      console.log('[OpenClaw] AI 回复 (历史):', textContent.text.substring(0, 200));
-                      resolve(textContent.text);
-                      return;
-                    }
-                  }
-                }
-                resolve('收到了，但没有找到回复内容。');
-              }).catch(err => {
-                clearTimeout(timeout);
-                reject(err);
-              });
-            }
-          }
+              splitter.finish();
 
-          // 3. 监听所有其他事件（OpenClaw 可能通过不同事件名返回结果）
-          if (msg.type === 'event' && msg.event !== 'chat' && msg.event !== 'connect.challenge') {
-            const payload = msg.payload || {};
-            // 尝试从任意事件中提取文本
-            if (payload.text && typeof payload.text === 'string') {
-              console.log(`[OpenClaw] 从事件 "${msg.event}" 收到文本: ${payload.text.substring(0, 100)}`);
-              accumulatedText += payload.text;
-              splitter.addText(payload.text);
-            }
-            if (payload.message && typeof payload.message === 'string') {
-              console.log(`[OpenClaw] 从事件 "${msg.event}" 收到 message: ${payload.message.substring(0, 100)}`);
-              if (!accumulatedText) accumulatedText = payload.message;
-            }
-            if (payload.result && typeof payload.result === 'string') {
-              console.log(`[OpenClaw] 从事件 "${msg.event}" 收到 result: ${payload.result.substring(0, 100)}`);
-              if (!accumulatedText) accumulatedText = payload.result;
+              if (accumulatedText.length > 0) {
+                console.log('[OpenClaw] AI 回复:', accumulatedText.substring(0, 200));
+                resolve(accumulatedText);
+              } else {
+                resolve('收到了，但没有找到回复内容。');
+              }
             }
           }
         } catch (e) {
@@ -572,17 +595,18 @@ async function chatWithOpenClaw(message) {
         }
       };
 
-      openclawWs.on('message', chatHandler);
+      openclawWs.on('message', agentHandler);
 
-      // 发送消息
+      // 发送消息（使用 agent 方法）
+      const idempotencyKey = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       openclawWs.send(JSON.stringify({
         type: 'req',
         id: chatReqId,
-        method: 'chat.send',
+        method: 'agent',
         params: {
-          sessionKey: 'agent:main:main',
-          idempotencyKey: idempotencyKey,
-          message: message
+          message: message,
+          sessionKey: getSessionKey(),
+          idempotencyKey: idempotencyKey
         }
       }));
     });
@@ -591,6 +615,47 @@ async function chatWithOpenClaw(message) {
     throw error;
   }
 }
+
+// 中止当前 agent 执行
+async function abortCurrentAgent() {
+  if (!currentAgentRunId) {
+    console.log('[OpenClaw] 无活跃 runId，跳过 abort');
+    return;
+  }
+
+  const runId = currentAgentRunId;
+  currentAgentRunId = null; // 立即清空防止重复 abort
+
+  if (!openclawWs || openclawWs.readyState !== WebSocket.OPEN) {
+    console.log('[OpenClaw] WebSocket 未连接，跳过 abort');
+    return;
+  }
+
+  const abortReqId = `abort-${++openclawRequestId}`;
+  console.log(`[OpenClaw] 发送 agent.abort, runId: ${runId}`);
+
+  openclawWs.send(JSON.stringify({
+    type: 'req',
+    id: abortReqId,
+    method: 'agent.abort',
+    params: { runId }
+  }));
+
+  // Fire-and-forget: 5 秒后清理 pending request
+  openclawPendingRequests.set(abortReqId, {
+    resolve: () => console.log('[OpenClaw] agent.abort 成功'),
+    reject: (err) => console.warn('[OpenClaw] agent.abort 失败:', err.message)
+  });
+  setTimeout(() => {
+    openclawPendingRequests.delete(abortReqId);
+  }, 5000);
+}
+
+// IPC handler: 前端触发 abort
+ipcMain.handle('openclaw:abort', async () => {
+  await abortCurrentAgent();
+  return { success: true };
+});
 
 // ===== 窗口创建 =====
 function createWindow() {
@@ -902,6 +967,7 @@ ipcMain.handle('tts:getVoice', async () => {
 ipcMain.handle('tts:stop', async () => {
   console.log('[TTS] 停止播放');
   ttsQueueManager.reset();
+  await abortCurrentAgent();
   return { success: true };
 });
 

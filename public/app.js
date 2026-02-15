@@ -788,6 +788,8 @@ function interruptTTS() {
   isSpeaking = false;
   // 通知主进程停止 TTS 生成
   window.electronAPI.tts.stop();
+  // 中止后端 agent 执行
+  window.electronAPI.abortAgent().catch(err => console.warn('[龙虾助手] abort 失败:', err));
 }
 
 // ===== 流式 TTS 初始化 =====
