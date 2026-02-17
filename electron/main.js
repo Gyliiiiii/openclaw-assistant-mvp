@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, Notification, shell } = require('electron');
 const path = require('path');
 const { createClient, LiveTranscriptionEvents } = require('@deepgram/sdk');
-const WebSocket = require('ws');
+const mqtt = require('mqtt');
 require('dotenv').config();
 
 // 捕获 EPIPE 错误，防止后台运行时崩溃
@@ -169,21 +169,16 @@ let deepgramClient = null;
 let deepgramLive = null;
 let currentSender = null;
 
-// ===== OpenClaw WebSocket 配置 =====
-const OPENCLAW_PORT = process.env.OPENCLAW_PORT || 18789;
-const OPENCLAW_TOKEN = process.env.OPENCLAW_GATEWAY_TOKEN || '';
-const OPENCLAW_WS_URL = `ws://localhost:${OPENCLAW_PORT}`;
+// ===== MQTT 配置 =====
+const DEVICE_ID = process.env.MQTT_DEVICE_ID || `desktop-${Date.now()}`;
+const TOPICS = {
+  inbound:  `openclaw/mqtt/${DEVICE_ID}/inbound`,
+  outbound: `openclaw/mqtt/${DEVICE_ID}/outbound`,
+  control:  `openclaw/mqtt/${DEVICE_ID}/control`,
+};
 
-let openclawWs = null;
-let openclawConnected = false;
-let openclawRequestId = 0;
-let openclawPendingRequests = new Map();
-let currentAgentRunId = null;  // 追踪当前 agent 执行的 runId
-
-const OPENCLAW_CHANNEL_ID = 'desktop';
-function getSessionKey(agentId = 'main') {
-  return `agent:${agentId}:${OPENCLAW_CHANNEL_ID}:dm:local`;
-}
+let mqttClient = null;
+let currentMessageId = null;  // 追踪当前消息 ID（用于 abort）
 
 // ===== 句子分割器 =====
 class SentenceSplitter {
@@ -302,358 +297,289 @@ class TTSQueueManager {
 const ttsQueueManager = new TTSQueueManager();
 let sentenceCounter = 0;
 
-// ===== OpenClaw WebSocket 连接 =====
-function connectOpenClaw() {
-  if (openclawWs && openclawWs.readyState === WebSocket.OPEN) {
-    return Promise.resolve();
+// ===== MQTT 连接管理 =====
+let mqttReady = false;  // 连接 + 订阅都完成后才为 true
+
+function connectMQTT() {
+  const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+  console.log(`[MQTT] 正在连接 ${brokerUrl}, deviceId: ${DEVICE_ID}`);
+
+  const mqttOptions = {
+    clientId: `electron-${DEVICE_ID}`,
+    clean: true,
+    reconnectPeriod: 3000,
+    protocolVersion: 4,  // MQTT 3.1.1
+  };
+  if (process.env.MQTT_USERNAME) {
+    mqttOptions.username = process.env.MQTT_USERNAME;
+    mqttOptions.password = process.env.MQTT_PASSWORD || '';
   }
 
-  return new Promise((resolve, reject) => {
-    console.log(`[OpenClaw] 正在连接 ${OPENCLAW_WS_URL}...`);
-    openclawWs = new WebSocket(OPENCLAW_WS_URL);
+  mqttClient = mqtt.connect(brokerUrl, mqttOptions);
 
-    const timeout = setTimeout(() => {
-      reject(new Error('OpenClaw 连接超时'));
-    }, 10000);
-
-    openclawWs.on('open', () => {
-      console.log('[OpenClaw] WebSocket 已连接，等待握手...');
-    });
-
-    openclawWs.on('message', (data) => {
-      try {
-        const msg = JSON.parse(data.toString());
-
-        // 处理连接挑战
-        if (msg.type === 'event' && msg.event === 'connect.challenge') {
-          console.log('[OpenClaw] 收到连接挑战，发送认证...');
-          openclawWs.send(JSON.stringify({
-            type: 'req',
-            id: 'connect-1',
-            method: 'connect',
-            params: {
-              minProtocol: 3,
-              maxProtocol: 3,
-              client: {
-                id: 'gateway-client',
-                version: '1.0.0',
-                platform: 'electron',
-                mode: 'backend'
-              },
-              role: 'operator',
-              scopes: ['operator.read', 'operator.write'],
-              auth: { token: OPENCLAW_TOKEN }
-            }
-          }));
-        }
-
-        // 处理响应
-        if (msg.type === 'res') {
-          if (msg.id === 'connect-1') {
-            if (msg.ok) {
-              clearTimeout(timeout);
-              openclawConnected = true;
-              console.log('[OpenClaw] 认证成功 ✓');
-              resolve();
-            } else {
-              clearTimeout(timeout);
-              reject(new Error(msg.error?.message || '认证失败'));
-            }
-          } else {
-            // 处理其他请求的响应
-            const pending = openclawPendingRequests.get(msg.id);
-            if (pending) {
-              openclawPendingRequests.delete(msg.id);
-              if (msg.ok) {
-                pending.resolve(msg.payload);
-              } else {
-                pending.reject(new Error(msg.error?.message || '请求失败'));
-              }
-            }
-          }
-        }
-      } catch (e) {
-        console.error('[OpenClaw] 消息解析错误:', e);
+  mqttClient.on('connect', () => {
+    console.log('[MQTT] Connected to broker');
+    // 先订阅，订阅成功后才标记 ready
+    mqttClient.subscribe([TOPICS.outbound, TOPICS.control], { qos: 1 }, (err) => {
+      if (err) {
+        console.error('[MQTT] 订阅失败:', err);
+        mqttReady = false;
+      } else {
+        console.log('[MQTT] 已订阅 outbound 和 control topic');
+        mqttReady = true;
+        // 订阅完成后再上报在线状态
+        mqttClient.publish(TOPICS.control, JSON.stringify({
+          type: 'status',
+          status: 'online',
+          deviceId: DEVICE_ID,
+          timestamp: Date.now()
+        }), { qos: 1 });
       }
     });
+  });
 
-    openclawWs.on('error', (err) => {
-      console.error('[OpenClaw] WebSocket 错误:', err.message);
-      openclawConnected = false;
-    });
+  mqttClient.on('message', (topic, message) => {
+    try {
+      const data = JSON.parse(message.toString());
+      if (topic === TOPICS.outbound) {
+        handleOutbound(data);
+      } else if (topic === TOPICS.control) {
+        handleControl(data);
+      }
+    } catch (e) {
+      console.error('[MQTT] 消息解析错误:', e);
+    }
+  });
 
-    openclawWs.on('close', () => {
-      console.log('[OpenClaw] WebSocket 已断开');
-      openclawConnected = false;
-      openclawWs = null;
-    });
+  mqttClient.on('error', (err) => {
+    console.error('[MQTT] Error:', err.message);
+  });
+
+  mqttClient.on('offline', () => {
+    console.log('[MQTT] 客户端离线');
+  });
+
+  mqttClient.on('reconnect', () => {
+    console.log('[MQTT] 正在重连...');
+  });
+
+  mqttClient.on('close', () => {
+    console.log('[MQTT] 连接已关闭');
+    mqttReady = false;
   });
 }
 
-// 发送 OpenClaw 请求
-function openclawRequest(method, params = {}) {
-  return new Promise((resolve, reject) => {
-    if (!openclawWs || openclawWs.readyState !== WebSocket.OPEN) {
-      reject(new Error('OpenClaw 未连接'));
-      return;
+// ===== MQTT 消息处理 =====
+// 流式回复回调管理
+let streamResolve = null;
+let streamReject = null;
+let streamTimeout = null;
+let accumulatedText = '';
+let streamSplitter = null;
+
+function cleanupStream() {
+  streamResolve = null;
+  streamReject = null;
+  streamTimeout = null;
+  accumulatedText = '';
+  streamSplitter = null;
+  currentMessageId = null;
+}
+
+// outbound 消息处理（Gateway → Electron）
+function handleOutbound(data) {
+  if (data.type === 'stream') {
+    // 流式文本块
+    const chunk = data.chunk || '';
+    if (chunk) {
+      accumulatedText += chunk;
+      if (streamSplitter) {
+        streamSplitter.addText(chunk);
+      }
     }
 
-    const id = `req-${++openclawRequestId}`;
-    openclawPendingRequests.set(id, { resolve, reject });
-
-    openclawWs.send(JSON.stringify({
-      type: 'req',
-      id,
-      method,
-      params
-    }));
-
-    // 超时处理
-    setTimeout(() => {
-      if (openclawPendingRequests.has(id)) {
-        openclawPendingRequests.delete(id);
-        reject(new Error('请求超时'));
+    if (data.done) {
+      console.log('[MQTT] 流式传输结束');
+      if (streamSplitter) {
+        streamSplitter.finish();
       }
-    }, 30000);
+    }
+  } else if (data.type === 'reply') {
+    console.log('[MQTT] 收到完整回复:', (data.text || '').substring(0, 200));
+
+    // 如果没有累积文本（没有收到 stream），使用 reply 的文本
+    if (!accumulatedText && data.text) {
+      accumulatedText = data.text;
+      if (streamSplitter) {
+        streamSplitter.addText(data.text);
+        streamSplitter.finish();
+      }
+    }
+
+    // resolve chatWithOpenClaw promise
+    if (streamResolve) {
+      clearTimeout(streamTimeout);
+      const result = accumulatedText || data.text || '收到了，但没有找到回复内容。';
+      streamResolve(result);
+      cleanupStream();
+    }
+  }
+}
+
+// control 消息处理（Gateway → Electron 工具事件）
+function handleControl(data) {
+  if (data.type === 'tool') {
+    switch (data.tool) {
+      case 'desktop_notify':
+        console.log(`[MQTT] 收到通知事件: ${data.params?.title}`);
+        if (Notification.isSupported()) {
+          new Notification({
+            title: data.params?.title || '通知',
+            body: data.params?.body || '',
+            silent: !!data.params?.silent
+          }).show();
+        }
+        break;
+      case 'open_finder':
+        console.log(`[MQTT] 收到打开 Finder 事件: ${data.params?.path}`);
+        if (data.params?.path) {
+          const os = require('os');
+          const expandedPath = data.params.path.startsWith('~/')
+            ? data.params.path.replace('~', os.homedir())
+            : data.params.path;
+          shell.showItemInFolder(expandedPath);
+        }
+        break;
+      case 'desktop_clipboard':
+        console.log('[MQTT] 收到剪贴板事件');
+        if (data.params?.text) {
+          const { clipboard } = require('electron');
+          clipboard.writeText(data.params.text);
+        }
+        break;
+    }
+  }
+}
+
+// ===== 等待 MQTT 就绪（连接 + 订阅完成） =====
+function waitForMQTT(timeoutMs = 10000) {
+  return new Promise((resolve, reject) => {
+    if (mqttReady) {
+      resolve();
+      return;
+    }
+    const timeout = setTimeout(() => {
+      clearInterval(poll);
+      reject(new Error('MQTT 连接超时'));
+    }, timeoutMs);
+    // 轮询检查 mqttReady 状态
+    const poll = setInterval(() => {
+      if (mqttReady) {
+        clearTimeout(timeout);
+        clearInterval(poll);
+        resolve();
+      }
+    }, 100);
   });
 }
 
-// 发送聊天消息到 OpenClaw（使用 agent 方法，支持流式句子分发）
+// ===== 发送聊天消息（基于 MQTT） =====
 async function chatWithOpenClaw(message) {
-  try {
-    await connectOpenClaw();
+  console.log(`[MQTT] 发送消息: "${message}"`);
 
-    console.log(`[OpenClaw] 发送消息: "${message}"`);
+  // 等待 MQTT 连接就绪（最多 10 秒）
+  await waitForMQTT(10000);
 
-    // 发送消息并等待完成
-    const chatReqId = `agent-${++openclawRequestId}`;
-    let accumulatedText = '';
+  const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  currentMessageId = msgId;
 
-    // 重置句子计数器和 TTS 队列
-    sentenceCounter = 0;
-    ttsQueueManager.startSession();
+  // 重置句子计数器和 TTS 队列
+  sentenceCounter = 0;
+  ttsQueueManager.startSession();
+  accumulatedText = '';
 
-    // 创建句子分割器
-    const splitter = new SentenceSplitter((sentence) => {
-      const currentSentenceId = ++sentenceCounter;
-      console.log(`[OpenClaw] 句子 #${currentSentenceId}: "${sentence}"`);
+  // 创建句子分割器
+  streamSplitter = new SentenceSplitter((sentence) => {
+    const currentSentenceId = ++sentenceCounter;
+    console.log(`[MQTT] 句子 #${currentSentenceId}: "${sentence}"`);
 
-      // 第一个句子立即发送到前端显示
-      if (currentSentenceId === 1 && mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send('openclaw:firstSentence', { text: sentence });
+    // 第一个句子立即发送到前端显示
+    if (currentSentenceId === 1 && mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('openclaw:firstSentence', { text: sentence });
+    }
+
+    // 将句子加入 TTS 队列
+    ttsQueueManager.enqueueSentence(sentence);
+  });
+
+  return new Promise((resolve, reject) => {
+    streamResolve = resolve;
+    streamReject = reject;
+
+    // 超时处理（180 秒，复杂任务可能需要较长时间）
+    streamTimeout = setTimeout(() => {
+      if (accumulatedText.length > 0) {
+        console.log('[MQTT] 响应超时，返回已累积文本');
+        if (streamSplitter) streamSplitter.finish();
+        resolve(accumulatedText);
+      } else {
+        reject(new Error('MQTT 响应超时'));
       }
+      cleanupStream();
+    }, 180000);
 
-      // 将句子加入 TTS 队列
-      ttsQueueManager.enqueueSentence(sentence);
+    // 发送消息到 inbound topic
+    mqttClient.publish(TOPICS.inbound, JSON.stringify({
+      type: 'message',
+      id: msgId,
+      text: message,
+      timestamp: Date.now()
+    }), { qos: 1 }, (err) => {
+      if (err) {
+        clearTimeout(streamTimeout);
+        cleanupStream();
+        reject(new Error(`MQTT publish 失败: ${err.message}`));
+      }
     });
-
-    return new Promise((resolve, reject) => {
-      // 复杂任务（搜索、工具调用等）可能需要较长时间，超时设为 180 秒
-      const timeout = setTimeout(() => {
-        if (openclawWs) {
-          openclawWs.removeListener('message', agentHandler);
-        }
-        currentAgentRunId = null;
-        // 超时但有累积文本时，返回已收到的部分
-        if (accumulatedText.length > 0) {
-          console.log('[OpenClaw] 响应超时，返回已累积文本:', accumulatedText.substring(0, 200));
-          splitter.finish(); // 刷新剩余文本
-          resolve(accumulatedText);
-        } else {
-          reject(new Error('OpenClaw 响应超时'));
-        }
-      }, 180000);
-
-      // 监听消息
-      const agentHandler = (data) => {
-        try {
-          const msg = JSON.parse(data.toString());
-
-          // 详细日志：记录所有 OpenClaw 消息（调试）
-          if (msg.type === 'event') {
-            console.log(`[OpenClaw] 事件: ${msg.event}, payload:`, JSON.stringify(msg.payload || {}).substring(0, 300));
-          } else if (msg.type === 'res' && msg.id !== 'connect-1') {
-            console.log(`[OpenClaw] 响应: id=${msg.id}, ok=${msg.ok}, payload:`, JSON.stringify(msg.payload || {}).substring(0, 500));
-          }
-
-          // 1. 处理 agent 请求的响应
-          if (msg.type === 'res' && msg.id === chatReqId) {
-            if (!msg.ok) {
-              console.error('[OpenClaw] agent 请求失败:', msg.error?.message || JSON.stringify(msg.error));
-              openclawWs.removeListener('message', agentHandler);
-              clearTimeout(timeout);
-              currentAgentRunId = null;
-              reject(new Error(msg.error?.message || 'agent 请求失败'));
-              return;
-            }
-
-            // 提取 runId（接受确认）
-            if (msg.payload?.runId) {
-              currentAgentRunId = msg.payload.runId;
-              console.log(`[OpenClaw] agent 已接受, runId: ${currentAgentRunId}`);
-            }
-
-            // status=accepted 是接受确认，不是完成，继续等待流式事件
-            if (msg.payload?.status === 'accepted') {
-              return;
-            }
-
-            // 非 accepted 的 res 帧视为完成信号
-            console.log('[OpenClaw] 收到 agent res 完成帧');
-            openclawWs.removeListener('message', agentHandler);
-            clearTimeout(timeout);
-            currentAgentRunId = null;
-
-            splitter.finish();
-
-            if (accumulatedText.length > 0) {
-              console.log('[OpenClaw] AI 回复 (流式):', accumulatedText.substring(0, 200));
-              resolve(accumulatedText);
-              return;
-            }
-
-            if (msg.payload && typeof msg.payload === 'string') {
-              resolve(msg.payload);
-              return;
-            }
-            if (msg.payload?.text) {
-              resolve(msg.payload.text);
-              return;
-            }
-
-            resolve('收到了，但没有找到回复内容。');
-            return;
-          }
-
-          // 2. 监听 agent 流式事件
-          if (msg.type === 'event' && msg.event === 'agent') {
-            const payload = msg.payload || {};
-
-            // 提取 runId
-            if (payload.runId && !currentAgentRunId) {
-              currentAgentRunId = payload.runId;
-              console.log(`[OpenClaw] 获取到 runId: ${currentAgentRunId}`);
-            }
-
-            // 根据 stream 字段分发处理
-            if (payload.stream === 'text' || payload.stream === 'content') {
-              const textChunk = typeof payload.data === 'string' ? payload.data : '';
-              if (textChunk) {
-                accumulatedText += textChunk;
-                splitter.addText(textChunk);
-              }
-            } else if (payload.stream === 'lifecycle') {
-              if (payload.data?.phase === 'end') {
-                console.log('[OpenClaw] agent lifecycle end');
-                // 如果已有累积文本（通过 agent 流式拿到的），直接完成
-                if (accumulatedText.length > 0) {
-                  openclawWs.removeListener('message', agentHandler);
-                  clearTimeout(timeout);
-                  currentAgentRunId = null;
-                  splitter.finish();
-                  console.log('[OpenClaw] AI 回复 (agent 流式):', accumulatedText.substring(0, 200));
-                  resolve(accumulatedText);
-                  return;
-                }
-              }
-            } else if (payload.stream === 'tool') {
-              console.log(`[OpenClaw] 工具事件: ${JSON.stringify(payload.data || {}).substring(0, 150)}`);
-            }
-          }
-
-          // 3. 监听 chat final 事件（agent 完成后 Gateway 发送完整文本）
-          if (msg.type === 'event' && msg.event === 'chat') {
-            const payload = msg.payload || {};
-
-            if (payload.state === 'final' || payload.done === true) {
-              console.log('[OpenClaw] 收到 chat final 事件');
-              openclawWs.removeListener('message', agentHandler);
-              clearTimeout(timeout);
-              currentAgentRunId = null;
-
-              // 从 message.content 提取完整文本
-              if (!accumulatedText && payload.message?.content) {
-                const textContent = payload.message.content.find(c => c.type === 'text');
-                if (textContent?.text) {
-                  accumulatedText = textContent.text;
-                  splitter.addText(textContent.text);
-                }
-              }
-
-              splitter.finish();
-
-              if (accumulatedText.length > 0) {
-                console.log('[OpenClaw] AI 回复:', accumulatedText.substring(0, 200));
-                resolve(accumulatedText);
-              } else {
-                resolve('收到了，但没有找到回复内容。');
-              }
-            }
-          }
-        } catch (e) {
-          // 忽略解析错误
-        }
-      };
-
-      openclawWs.on('message', agentHandler);
-
-      // 发送消息（使用 agent 方法）
-      const idempotencyKey = `agent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      openclawWs.send(JSON.stringify({
-        type: 'req',
-        id: chatReqId,
-        method: 'agent',
-        params: {
-          message: message,
-          sessionKey: getSessionKey(),
-          idempotencyKey: idempotencyKey
-        }
-      }));
-    });
-  } catch (error) {
-    console.error('[OpenClaw] 聊天失败:', error.message);
-    throw error;
-  }
+  });
 }
 
-// 中止当前 agent 执行
-async function abortCurrentAgent() {
-  if (!currentAgentRunId) {
-    console.log('[OpenClaw] 无活跃 runId，跳过 abort');
+// ===== 中止当前生成（基于 MQTT） =====
+function abortCurrentAgent() {
+  if (!currentMessageId) {
+    console.log('[MQTT] 无活跃消息 ID，跳过 abort');
     return;
   }
 
-  const runId = currentAgentRunId;
-  currentAgentRunId = null; // 立即清空防止重复 abort
+  const msgId = currentMessageId;
+  currentMessageId = null;
 
-  if (!openclawWs || openclawWs.readyState !== WebSocket.OPEN) {
-    console.log('[OpenClaw] WebSocket 未连接，跳过 abort');
+  if (!mqttClient || !mqttClient.connected) {
+    console.log('[MQTT] 未连接，跳过 abort');
     return;
   }
 
-  const abortReqId = `abort-${++openclawRequestId}`;
-  console.log(`[OpenClaw] 发送 agent.abort, runId: ${runId}`);
+  console.log(`[MQTT] 发送 abort, replyTo: ${msgId}`);
+  mqttClient.publish(TOPICS.control, JSON.stringify({
+    type: 'abort',
+    replyTo: msgId
+  }), { qos: 1 });
 
-  openclawWs.send(JSON.stringify({
-    type: 'req',
-    id: abortReqId,
-    method: 'agent.abort',
-    params: { runId }
-  }));
-
-  // Fire-and-forget: 5 秒后清理 pending request
-  openclawPendingRequests.set(abortReqId, {
-    resolve: () => console.log('[OpenClaw] agent.abort 成功'),
-    reject: (err) => console.warn('[OpenClaw] agent.abort 失败:', err.message)
-  });
-  setTimeout(() => {
-    openclawPendingRequests.delete(abortReqId);
-  }, 5000);
+  // 清理等待中的 stream
+  if (streamResolve) {
+    clearTimeout(streamTimeout);
+    if (accumulatedText.length > 0) {
+      streamResolve(accumulatedText);
+    } else {
+      streamResolve('已中止');
+    }
+    cleanupStream();
+  }
 }
 
 // IPC handler: 前端触发 abort
 ipcMain.handle('openclaw:abort', async () => {
-  await abortCurrentAgent();
+  abortCurrentAgent();
   return { success: true };
 });
 
@@ -967,7 +893,7 @@ ipcMain.handle('tts:getVoice', async () => {
 ipcMain.handle('tts:stop', async () => {
   console.log('[TTS] 停止播放');
   ttsQueueManager.reset();
-  await abortCurrentAgent();
+  abortCurrentAgent();
   return { success: true };
 });
 
@@ -1058,17 +984,23 @@ ipcMain.handle('file:showInFolder', async (event, filePath) => {
 // ===== 应用生命周期 =====
 app.whenReady().then(() => {
   createWindow();
-  // 预连接 OpenClaw（不等待，后台连接）
-  connectOpenClaw().then(() => {
-    console.log('[启动] OpenClaw 预连接成功');
-  }).catch(err => {
-    console.warn('[启动] OpenClaw 预连接失败（首次对话时会重试）:', err.message);
+  // 延迟连接 MQTT，等 Electron 网络栈完全就绪
+  mainWindow.webContents.on('did-finish-load', () => {
+    connectMQTT();
   });
-  // 注意：Deepgram 不在此处预连接，而是在首次 startListening 时创建
-  // 因为 Deepgram 连接需要前端准备好音频流
 });
 
 app.on('window-all-closed', () => {
+  // MQTT: 上报离线状态并断开
+  if (mqttClient && mqttClient.connected) {
+    mqttClient.publish(TOPICS.control, JSON.stringify({
+      type: 'status',
+      status: 'offline',
+      deviceId: DEVICE_ID,
+      timestamp: Date.now()
+    }), { qos: 1 });
+    mqttClient.end();
+  }
   // 清理 Deepgram 连接
   isListeningActive = false;
   if (deepgramKeepAlive) { clearInterval(deepgramKeepAlive); deepgramKeepAlive = null; }
