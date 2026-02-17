@@ -2,9 +2,13 @@
 
 This file provides guidance for Claude Code (claude.ai/code) when working in this codebase.
 
+## 语言偏好
+
+总是用中文回复。
+
 ## Project Overview
 
-OpenClaw Desktop Assistant MVP — an Electron-based AI voice assistant featuring real-time speech recognition (Deepgram), text-to-speech (MiniMax), and integration with the Clawdbot AI backend via OpenClaw WebSocket.
+OpenClaw Desktop Assistant MVP — an Electron-based AI voice assistant featuring real-time speech recognition (Deepgram), text-to-speech (MiniMax), and integration with the Clawdbot AI backend via MQTT.
 
 ## Development Commands
 
@@ -42,10 +46,26 @@ MINIMAX_GROUP_ID=your_minimax_group_id_here
 MINIMAX_MODEL=speech-02-turbo
 MINIMAX_VOICE_ID=Lovely_Girl
 
-# OpenClaw Gateway
-OPENCLAW_PORT=18789
-OPENCLAW_GATEWAY_TOKEN=your_openclaw_gateway_token_here
+# MQTT Broker
+MQTT_BROKER_URL=mqtt://localhost:1883
+MQTT_DEVICE_ID=desktop-001
+MQTT_USERNAME=
+MQTT_PASSWORD=
 ```
+
+**生产环境（EMQX Cloud Serverless）：**
+```bash
+MQTT_BROKER_URL=wss://your-address.emqxsl.com:8084/mqtt
+MQTT_DEVICE_ID=desktop-001
+MQTT_USERNAME=your_username
+MQTT_PASSWORD=your_password
+```
+
+EMQX Cloud Serverless 特点：
+- 免费额度：每月 100 万会话分钟 + 1GB 流量（永久免费）
+- 仅支持 WebSocket over TLS（`wss://` 端口 8084）
+- 强制 TLS + 用户名密码认证
+- mqtt.js 原生支持，无需额外依赖
 
 Copy `.env.example` to `.env` and fill in your API keys.
 
@@ -57,7 +77,7 @@ Copy `.env.example` to `.env` and fill in your API keys.
 - Window management (full mode and mini floating bubble mode)
 - Deepgram Live API STT integration with persistent WebSocket connection
 - MiniMax TTS streaming sentence-by-sentence synthesis (REST API)
-- OpenClaw WebSocket client for AI conversations
+- MQTT client for OpenClaw Gateway communication (pub/sub)
 - Task queue manager for async operations (TaskManager class)
 - SentenceSplitter class for real-time text chunking
 - TTSQueueManager class for audio queue management
@@ -150,45 +170,98 @@ const isAsyncTask = asyncKeywords.some(keyword => command.includes(keyword));
 
 ### OpenClaw Integration
 
-**WebSocket Protocol (agent 方法)**
-1. Connect → receive `connect.challenge` event
-2. Send `connect` request for token authentication
-3. Send `agent` request with message, sessionKey, idempotencyKey
-4. Receive `res` with `status: 'accepted'` and `runId`
-5. Receive streaming `agent` events (`stream: 'text'`/`'content'`/`'lifecycle'`/`'tool'`)
-6. Receive `chat` final event with complete message in `message.content`
-7. Support `agent.abort` with `runId` to cancel in-progress generation
-8. 180-second timeout for complex operations (searches, tool calls)
+**MQTT Protocol**
+1. Electron connects to MQTT Broker on startup (supports `mqtt://`, `mqtts://`, `wss://`)
+2. Subscribe to `openclaw/desktop/{deviceId}/outbound` and `openclaw/desktop/{deviceId}/control`
+3. User message → publish to `openclaw/desktop/{deviceId}/inbound` as `{ type: "message", id, text, timestamp }`
+4. Gateway Channel Plugin receives message, calls Agent
+5. Agent streams response → Gateway publishes `{ type: "stream", replyTo, chunk, seq, done }` to outbound
+6. Agent completes → Gateway publishes `{ type: "reply", replyTo, text, timestamp }` to outbound
+7. Abort → Electron publishes `{ type: "abort", replyTo }` to control topic
+8. Tool events → Gateway publishes `{ type: "tool", tool, params }` to control topic
 
-**Agent Request Format**
-```javascript
-{
-  type: 'req',
-  id: 'agent-1',
-  method: 'agent',
-  params: {
-    message: '用户消息',
-    sessionKey: 'agent:main:desktop:dm:local',  // getSessionKey() 生成
-    idempotencyKey: 'agent-xxx-xxx'
+**MQTT Broker 配置**
+
+开发环境（本地 Mosquitto）：
+```bash
+MQTT_BROKER_URL=mqtt://localhost:1883
+MQTT_DEVICE_ID=desktop-001
+MQTT_USERNAME=
+MQTT_PASSWORD=
+```
+
+生产环境（EMQX Cloud Serverless）：
+```bash
+MQTT_BROKER_URL=wss://your-address.emqxsl.com:8084/mqtt
+MQTT_DEVICE_ID=desktop-001
+MQTT_USERNAME=your_username
+MQTT_PASSWORD=your_password
+```
+
+EMQX Cloud Serverless 特点：
+- 免费额度：每月 100 万会话分钟 + 1GB 流量（永久免费）
+- 仅支持 WebSocket over TLS（`wss://` 端口 8084）
+- 强制 TLS + 用户名密码认证
+- mqtt.js 原生支持，无需额外依赖
+
+**Gateway 配置**
+
+需要在 `~/.openclaw/openclaw.json` 中配置两处：
+
+1. `channels.desktop` 配置：
+```json
+"channels": {
+  "desktop": {
+    "enabled": true,
+    "mqttBrokerUrl": "wss://your-address.emqxsl.com:8084/mqtt",
+    "mqttDeviceId": "desktop-001",
+    "mqttUsername": "your_username",
+    "mqttPassword": "your_password"
   }
 }
 ```
 
-**Agent Event Streams**
-- `stream: 'text'` / `'content'` — 流式文本块，`data` 为文本字符串
-- `stream: 'lifecycle'` — 生命周期事件，`data.phase === 'end'` 表示完成
-- `stream: 'tool'` — 工具调用事件
+2. `plugins.entries.desktop.config` 配置：
+```json
+"plugins": {
+  "entries": {
+    "desktop": {
+      "enabled": true,
+      "config": {
+        "mqttBrokerUrl": "wss://your-address.emqxsl.com:8084/mqtt",
+        "mqttDeviceId": "desktop-001",
+        "mqttUsername": "your_username",
+        "mqttPassword": "your_password"
+      }
+    }
+  }
+}
+```
 
-**Agent Abort (中止生成)**
-- 用户打断 TTS 时自动触发 "双中断"：本地 TTS 停止 + `agent.abort`
-- `interruptTTS()` → `tts.stop()` → `abortCurrentAgent()` 发送 `agent.abort` 请求
-- Fire-and-forget 模式，5 秒超时清理
-- `currentAgentRunId` 追踪当前执行，完成/超时/中止时清空
+修改配置后需要重启 Gateway：
+```bash
+openclaw gateway restart
+```
 
-**Session Key 策略**
-- Channel ID: `desktop`
-- 生成规则: `agent:<agentId>:<channelId>:dm:local`
-- 默认值: `agent:main:desktop:dm:local`
+**MQTT Topics**
+```
+openclaw/desktop/{deviceId}/inbound     # Electron → Gateway（用户消息）
+openclaw/desktop/{deviceId}/outbound    # Gateway → Electron（流式文本块 + 完整回复）
+openclaw/desktop/{deviceId}/control     # 双向（abort、工具事件、状态）
+```
+
+**Message Formats**
+- inbound: `{ type: "message", id, text, timestamp }`
+- outbound stream: `{ type: "stream", replyTo, chunk, seq, done }`
+- outbound reply: `{ type: "reply", replyTo, text, timestamp }`
+- control abort: `{ type: "abort", replyTo }`
+- control tool: `{ type: "tool", tool, params }`
+- control status: `{ type: "status", status, deviceId, timestamp }`
+
+**Abort (中止生成)**
+- 用户打断 TTS 时自动触发 "双中断"：本地 TTS 停止 + publish abort 到 control topic
+- `interruptTTS()` → `tts.stop()` → `abortCurrentAgent()` publish abort 消息
+- `currentMessageId` 追踪当前消息，完成/超时/中止时清空
 
 **Sentence Splitting for Streaming TTS**
 - SentenceSplitter class with regex: `/[。！？.!?]\s*/g`
@@ -220,7 +293,7 @@ Text containing file paths (e.g., `~/Documents/file.txt`, `/Users/...`) is autom
 - `@deepgram/sdk` v4.11.3 — Speech-to-text via Deepgram WebSocket API
 - `dotenv` v17.2.4 — Environment variable management
 - `node-fetch` v2.7.0 — HTTP client for MiniMax TTS API calls
-- `ws` v8.19.0 — WebSocket client for OpenClaw Gateway
+- `mqtt` ^5.0.0 — MQTT client for OpenClaw Gateway communication
 
 **Dev:**
 - `electron` v28.0.0 — Desktop application framework
@@ -276,7 +349,7 @@ npm run dev
 Key log prefixes:
 - `[STT]`: Deepgram speech-to-text events
 - `[TTS]`: MiniMax text-to-speech operations
-- `[OpenClaw]`: AI backend communication
+- `[MQTT]`: MQTT broker communication
 - `[龙虾助手]`: Frontend application events
 - `[TaskManager]`: Async task queue operations
 
@@ -288,7 +361,7 @@ Users can interrupt TTS playback by:
 
 Interruption flow:
 1. Call `interruptTTS()` to stop audio and clear the queue
-2. Call `abortAgent()` to send `agent.abort` to Gateway (stops AI generation)
+2. Call `abortAgent()` to publish abort message to MQTT control topic (stops AI generation)
 3. Display "Interrupted" bubble with a button to view the full response
 4. Transition to `listening` state
 5. Immediately start recording
@@ -302,9 +375,8 @@ Interruption flow:
 | EXECUTE_DELAY | 3,000ms | Delay before executing after voice ends |
 | Deepgram Connect Timeout | 10,000ms | Initial connection timeout |
 | Deepgram Keep-Alive | 8,000ms | Heartbeat interval |
-| OpenClaw Default Timeout | 30,000ms | Standard request timeout |
-| OpenClaw Agent Timeout | 180,000ms | Complex operations (search, tools) |
-| OpenClaw Abort Timeout | 5,000ms | Fire-and-forget abort cleanup |
+| MQTT Agent Timeout | 180,000ms | Complex operations (search, tools) |
+| MQTT Reconnect | 3,000ms | Auto-reconnect interval |
 
 ## Important Implementation Notes
 
@@ -318,6 +390,8 @@ Interruption flow:
 - Markdown formatting (`**bold**`, `*italic*`, `` `code` ``) is stripped from TTS text via `cleanMarkdown()`
 - Deepgram audio format: 16kHz mono PCM (linear16), sent as raw buffer
 - MiniMax TTS output format: MP3 (32kHz, 128kbit/s), hex-encoded → base64 for IPC
+- MQTT client uses `clean: false` for offline message caching and QoS 1 for at-least-once delivery
+- On app start, publish `online` status to control topic; on shutdown, publish `offline` status
 
 ## Testing Checklist
 
@@ -330,6 +404,6 @@ Interruption flow:
 - [ ] Window minimize/restore preserves position
 - [ ] TTS plays sentences in correct order with no gaps
 - [ ] Deepgram connection persists across multiple listening sessions
-- [ ] OpenClaw agent method works (not chat.send)
+- [ ] MQTT connection to broker works (connect, subscribe, publish)
 - [ ] Agent abort stops backend generation on interruption
 - [ ] Chinese speech recognition works correctly (zh-CN)

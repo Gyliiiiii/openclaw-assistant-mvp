@@ -62,9 +62,13 @@ MINIMAX_GROUP_ID=your_group_id
 MINIMAX_MODEL=speech-02-turbo
 MINIMAX_VOICE_ID=Lovely_Girl
 
-# OpenClaw Gateway
-OPENCLAW_PORT=18789
-OPENCLAW_GATEWAY_TOKEN=your_token
+# MQTT Broker（OpenClaw 通信）
+# 生产环境: wss://your-emqx-cloud.emqxsl.com:8084/mqtt (EMQX Cloud Serverless)
+# 开发环境: mqtt://localhost:1883 (本地 Mosquitto)
+MQTT_BROKER_URL=wss://your-emqx-cloud.emqxsl.com:8084/mqtt
+MQTT_DEVICE_ID=desktop-001
+MQTT_USERNAME=your_username
+MQTT_PASSWORD=your_password
 ```
 
 ### 安装和运行
@@ -186,9 +190,13 @@ MINIMAX_GROUP_ID=your_group_id
 MINIMAX_MODEL=speech-02-turbo
 MINIMAX_VOICE_ID=Lovely_Girl
 
-# OpenClaw Gateway
-OPENCLAW_PORT=18789
-OPENCLAW_GATEWAY_TOKEN=your_token
+# MQTT Broker (OpenClaw communication)
+# Production: wss://your-emqx-cloud.emqxsl.com:8084/mqtt (EMQX Cloud Serverless)
+# Development: mqtt://localhost:1883 (local Mosquitto)
+MQTT_BROKER_URL=wss://your-emqx-cloud.emqxsl.com:8084/mqtt
+MQTT_DEVICE_ID=desktop-001
+MQTT_USERNAME=your_username
+MQTT_PASSWORD=your_password
 ```
 
 ### Installation & Running
