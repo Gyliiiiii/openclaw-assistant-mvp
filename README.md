@@ -13,7 +13,7 @@
 - ✅ Electron 桌面应用，支持 macOS (x64 + arm64)
 - ✅ 实时语音识别（Deepgram nova-2，中文）
 - ✅ 流式文字转语音（MiniMax，逐句合成无缝播放）
-- ✅ OpenClaw Gateway 集成（WebSocket 流式对话）
+- ✅ OpenClaw Gateway 集成（MQTT 协议，支持云端通信）
 - ✅ 多角色系统（龙虾小虾米、Amy，更多角色开发中）
 - ✅ 30 种语音音色可选，实时切换
 - ✅ 迷你悬浮球模式（64x64px，单击听写 / 双击恢复）
@@ -27,7 +27,7 @@
 ```
 openclaw-assistant-mvp/
 ├── electron/
-│   ├── main.js              # 主进程（STT / TTS / OpenClaw / 窗口管理）
+│   ├── main.js              # 主进程（STT / TTS / MQTT / 窗口管理）
 │   └── preload.js           # IPC 安全桥接
 ├── public/
 │   ├── index.html           # 主页面
@@ -112,7 +112,7 @@ npm run build:dmg
 | 桌面框架 | Electron 28 | 跨平台桌面应用 |
 | 语音识别 | Deepgram nova-2 | WebSocket 实时转写 |
 | 文字转语音 | MiniMax speech-02-turbo | REST API，MP3 32kHz |
-| AI 后端 | OpenClaw | WebSocket 流式对话 |
+| AI 后端 | OpenClaw | MQTT 协议，云端通信 |
 | 前端 | 原生 HTML/CSS/JS | 无框架依赖 |
 | 动画 | Canvas 2D | 粒子系统 + 波纹效果 |
 
@@ -141,7 +141,7 @@ An Electron-based AI voice desktop assistant featuring real-time speech recognit
 - ✅ Electron desktop app with macOS support (x64 + arm64)
 - ✅ Real-time speech recognition (Deepgram nova-2, Chinese)
 - ✅ Streaming text-to-speech (MiniMax, sentence-by-sentence seamless playback)
-- ✅ OpenClaw Gateway integration (WebSocket streaming chat)
+- ✅ OpenClaw Gateway integration (MQTT protocol, cloud communication)
 - ✅ Multi-character system (Lobster, Amy, more coming soon)
 - ✅ 30 voice presets with instant switching
 - ✅ Mini floating bubble mode (64x64px, click to listen / double-click to restore)
@@ -155,7 +155,7 @@ An Electron-based AI voice desktop assistant featuring real-time speech recognit
 ```
 openclaw-assistant-mvp/
 ├── electron/
-│   ├── main.js              # Main process (STT / TTS / OpenClaw / window mgmt)
+│   ├── main.js              # Main process (STT / TTS / MQTT / window mgmt)
 │   └── preload.js           # Secure IPC bridge
 ├── public/
 │   ├── index.html           # Main page
@@ -240,7 +240,7 @@ npm run build:dmg
 | Desktop | Electron 28 | Cross-platform desktop app |
 | STT | Deepgram nova-2 | WebSocket real-time transcription |
 | TTS | MiniMax speech-02-turbo | REST API, MP3 32kHz |
-| AI Backend | OpenClaw | WebSocket streaming chat |
+| AI Backend | OpenClaw | MQTT protocol, cloud communication |
 | Frontend | Vanilla HTML/CSS/JS | No framework dependencies |
 | Animation | Canvas 2D | Particle system + ripple effects |
 
