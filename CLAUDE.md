@@ -245,9 +245,9 @@ openclaw gateway restart
 
 **MQTT Topics**
 ```
-openclaw/desktop/{deviceId}/inbound     # Electron → Gateway（用户消息）
-openclaw/desktop/{deviceId}/outbound    # Gateway → Electron（流式文本块 + 完整回复）
-openclaw/desktop/{deviceId}/control     # 双向（abort、工具事件、状态）
+openclaw/mqtt/{deviceId}/inbound     # Electron → Gateway（用户消息）
+openclaw/mqtt/{deviceId}/outbound    # Gateway → Electron（流式文本块 + 完整回复）
+openclaw/mqtt/{deviceId}/control     # 双向（abort、工具事件、状态）
 ```
 
 **Message Formats**

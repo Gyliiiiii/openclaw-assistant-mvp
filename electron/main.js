@@ -273,8 +273,8 @@ class TTSQueueManager {
       const item = this.audioQueue.shift();
 
       try {
-        // 调用 TTS 生成音频
-        const audioData = await callMiniMaxTTS(item.sentence);
+        // 调用 TTS 生成音频（使用路由函数）
+        const audioData = await callTTS(item.sentence);
 
         if (audioData && mainWindow && !mainWindow.isDestroyed()) {
           // 发送音频块到前端
@@ -823,15 +823,72 @@ ipcMain.handle('deepgram:sendAudio', async (event, audioData) => {
   }
 });
 
-// ===== MiniMax TTS =====
+// ===== TTS 配置 =====
+const TTS_PROVIDER = process.env.TTS_PROVIDER || 'minimax';
+
+// MiniMax
 const MINIMAX_API_KEY = process.env.MINIMAX_API_KEY || '';
 const MINIMAX_GROUP_ID = process.env.MINIMAX_GROUP_ID || '';
 const MINIMAX_MODEL = process.env.MINIMAX_MODEL || 'speech-02-turbo';
 
+// ElevenLabs
+const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || '';
+let currentElevenLabsVoiceId = process.env.ELEVENLABS_VOICE_ID || '21m00Tcm4TlvDq8ikWAM';
+
 // 当前选择的音色（可被前端动态修改）
 let currentVoiceId = process.env.MINIMAX_VOICE_ID || 'Lovely_Girl';
 
-// 核心 TTS 函数（提取为独立函数，供 TTSQueueManager 调用）
+// ElevenLabs TTS 函数
+async function callElevenLabsTTS(text) {
+  if (!ELEVENLABS_API_KEY) {
+    throw new Error('ElevenLabs API Key 未配置');
+  }
+
+  const startTime = Date.now();
+  console.log(`[TTS] ElevenLabs 生成语音 (音色: ${currentElevenLabsVoiceId}): "${text.substring(0, 50)}..."`);
+
+  const response = await fetch(
+    `https://api.elevenlabs.io/v1/text-to-speech/${currentElevenLabsVoiceId}`,
+    {
+      method: 'POST',
+      headers: {
+        'Accept': 'audio/mpeg',
+        'Content-Type': 'application/json',
+        'xi-api-key': ELEVENLABS_API_KEY
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: 'eleven_flash_v2_5',
+        voice_settings: {
+          stability: 0.5,
+          similarity_boost: 0.75
+        }
+      })
+    }
+  );
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('[TTS] ElevenLabs 错误响应:', errorText);
+    throw new Error(`ElevenLabs API ${response.status}: ${errorText}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const audioBuffer = Buffer.from(arrayBuffer);
+
+  if (audioBuffer.length < 1000) {
+    const text = audioBuffer.toString('utf-8');
+    if (text.includes('detail') || text.includes('error')) {
+      throw new Error(`ElevenLabs 返回错误: ${text}`);
+    }
+  }
+  const duration = Date.now() - startTime;
+  console.log(`[TTS] ElevenLabs 生成音频: ${audioBuffer.length} 字节, 耗时: ${duration}ms`);
+
+  return audioBuffer.toString('base64');
+}
+
+// MiniMax TTS 函数
 async function callMiniMaxTTS(text) {
   if (!MINIMAX_API_KEY || !MINIMAX_GROUP_ID) {
     throw new Error('MiniMax API Key 或 Group ID 未配置');
@@ -893,10 +950,27 @@ async function callMiniMaxTTS(text) {
   return audioBuffer.toString('base64');
 }
 
+// TTS 路由函数（根据配置选择提供商）
+async function callTTS(text) {
+  const provider = TTS_PROVIDER.toLowerCase();
+
+  if (provider === 'elevenlabs') {
+    return await callElevenLabsTTS(text);
+  } else {
+    return await callMiniMaxTTS(text);
+  }
+}
+
 // 前端设置音色
 ipcMain.handle('tts:setVoice', async (event, voiceId) => {
   console.log(`[TTS] 音色已切换: ${currentVoiceId} → ${voiceId}`);
-  currentVoiceId = voiceId;
+
+  if (TTS_PROVIDER === 'elevenlabs') {
+    currentElevenLabsVoiceId = voiceId;
+  } else {
+    currentVoiceId = voiceId;
+  }
+
   return { success: true };
 });
 
@@ -916,10 +990,10 @@ ipcMain.handle('tts:stop', async () => {
 // 非流式 TTS（兼容旧接口）
 ipcMain.handle('deepgram:textToSpeech', async (event, text) => {
   try {
-    const audioBase64 = await callMiniMaxTTS(text);
+    const audioBase64 = await callTTS(text);
     return { success: true, audio: audioBase64 };
   } catch (error) {
-    console.error('[TTS] MiniMax 失败:', error);
+    console.error('[TTS] 失败:', error);
     return { success: false, error: error.message };
   }
 });

@@ -1197,52 +1197,34 @@ const closeVoicePanel = document.getElementById('close-voice-panel');
 
 // Gemini TTS 音色列表（30种音色，自动检测语言）
 const VOICE_OPTIONS = [
-  // ===== 推荐 =====
+  // ===== 推荐 (ElevenLabs) =====
   { group: '推荐', lang: 'all', voices: [
-    { id: 'Kore',    icon: 'mdi:ribbon', name: 'Kore',    desc: '温暖友好', gender: 'female' },
-    { id: 'Puck',    icon: 'mdi:star-four-points', name: 'Puck',    desc: '活泼俏皮', gender: 'male' },
-    { id: 'Charon',  icon: 'mdi:account', name: 'Charon',  desc: '沉稳可靠', gender: 'male' },
-    { id: 'Aoede',   icon: 'mdi:emoticon-happy', name: 'Aoede',   desc: '优雅动听', gender: 'female' },
+    { id: 'pNInz6obpgDQGcFmaJgB', icon: 'mdi:ribbon', name: 'Adam', desc: '多语言男声', gender: 'male' },
+    { id: '21m00Tcm4TlvDq8ikWAM', icon: 'mdi:star-four-points', name: 'Rachel', desc: '温暖女声', gender: 'female' },
+    { id: 'EXAVITQu4vr4xnSDxMaL', icon: 'mdi:account', name: 'Bella', desc: '甜美女声', gender: 'female' },
+    { id: 'ErXwobaYiN019PkySvjV', icon: 'mdi:emoticon-happy', name: 'Antoni', desc: '磁性男声', gender: 'male' },
   ]},
-  // ===== 女声 =====
+  // ===== 女声 (ElevenLabs) =====
   { group: '女声', lang: 'all', voices: [
-    { id: 'Kore',    icon: 'mdi:face-woman-shimmer', name: 'Kore',    desc: '温暖友好', gender: 'female' },
-    { id: 'Aoede',   icon: 'mdi:flower', name: 'Aoede',   desc: '优雅动听', gender: 'female' },
-    { id: 'Leda',    icon: 'mdi:cloud', name: 'Leda',    desc: '柔和舒缓', gender: 'female' },
-    { id: 'Callisto', icon: 'mdi:bell', name: 'Callisto', desc: '清脆明亮', gender: 'female' },
-    { id: 'Dione',   icon: 'mdi:emoticon-blush', name: 'Dione',   desc: '甜美可爱', gender: 'female' },
-    { id: 'Elara',   icon: 'mdi:heart', name: 'Elara',   desc: '亲切温柔', gender: 'female' },
-    { id: 'Io',      icon: 'mdi:book-open-page-variant', name: 'Io',      desc: '知性优雅', gender: 'female' },
-    { id: 'Thebe',   icon: 'mdi:flower-rose', name: 'Thebe',   desc: '成熟稳重', gender: 'female' },
-    { id: 'Himalia', icon: 'mdi:account-tie', name: 'Himalia', desc: '专业干练', gender: 'female' },
-    { id: 'Carme',   icon: 'mdi:television', name: 'Carme',   desc: '播音腔调', gender: 'female' },
-    { id: 'Ananke',  icon: 'mdi:crown', name: 'Ananke',  desc: '高贵典雅', gender: 'female' },
-    { id: 'Lysithea', icon: 'mdi:candy', name: 'Lysithea', desc: '甜蜜温柔', gender: 'female' },
-    { id: 'Pasiphae', icon: 'mdi:party-popper', name: 'Pasiphae', desc: '活力四射', gender: 'female' },
-    { id: 'Sinope',  icon: 'mdi:sparkles', name: 'Sinope',  desc: '元气满满', gender: 'female' },
-    { id: 'Isonoe',  icon: 'mdi:yoga', name: 'Isonoe',  desc: '平静安详', gender: 'female' },
+    { id: '21m00Tcm4TlvDq8ikWAM', icon: 'mdi:face-woman-shimmer', name: 'Rachel', desc: '温暖友好', gender: 'female' },
+    { id: 'EXAVITQu4vr4xnSDxMaL', icon: 'mdi:flower', name: 'Bella', desc: '甜美可爱', gender: 'female' },
+    { id: 'MF3mGyEYCl7XYWbV9V6O', icon: 'mdi:cloud', name: 'Elli', desc: '柔和舒缓', gender: 'female' },
+    { id: 'ThT5KcBeYPX3keUQqHPh', icon: 'mdi:bell', name: 'Dorothy', desc: '清脆明亮', gender: 'female' },
+    { id: 'XB0fDUnXU5powFXDhCwa', icon: 'mdi:emoticon-blush', name: 'Charlotte', desc: '优雅知性', gender: 'female' },
+    { id: 'pFZP5JQG7iQjIQuC4Bku', icon: 'mdi:heart', name: 'Lily', desc: '亲切温柔', gender: 'female' },
   ]},
-  // ===== 男声 =====
+  // ===== 男声 (ElevenLabs) =====
   { group: '男声', lang: 'all', voices: [
-    { id: 'Puck',    icon: 'mdi:weather-night', name: 'Puck',    desc: '活泼俏皮', gender: 'male' },
-    { id: 'Charon',  icon: 'mdi:arm-flex', name: 'Charon',  desc: '沉稳可靠', gender: 'male' },
-    { id: 'Fenrir',  icon: 'mdi:heart-outline', name: 'Fenrir',  desc: '强劲有力', gender: 'male' },
-    { id: 'Orus',    icon: 'mdi:hat-fedora', name: 'Orus',    desc: '儒雅绅士', gender: 'male' },
-    { id: 'Proteus', icon: 'mdi:microphone', name: 'Proteus', desc: '浑厚播音', gender: 'male' },
-    { id: 'Triton',  icon: 'mdi:radio', name: 'Triton',  desc: '深沉磁性', gender: 'male' },
-    { id: 'Nereid',  icon: 'mdi:tie', name: 'Nereid',  desc: '专业稳重', gender: 'male' },
-    { id: 'Larissa', icon: 'mdi:sword-cross', name: 'Larissa', desc: '年轻活力', gender: 'male' },
-    { id: 'Galatea', icon: 'mdi:sunglasses', name: 'Galatea', desc: '轻松随意', gender: 'male' },
-    { id: 'Despina', icon: 'mdi:tree', name: 'Despina', desc: '温和耐心', gender: 'male' },
-    { id: 'Thalassa', icon: 'mdi:microphone-variant', name: 'Thalassa', desc: '低沉有力', gender: 'male' },
-    { id: 'Naiad',   icon: 'mdi:target', name: 'Naiad',   desc: '果断坚定', gender: 'male' },
-    { id: 'Halimede', icon: 'mdi:glass-wine', name: 'Halimede', desc: '优雅精致', gender: 'male' },
-    { id: 'Sao',     icon: 'mdi:robot', name: 'Sao',     desc: '机械感', gender: 'male' },
-    { id: 'Laomedeia', icon: 'mdi:account', name: 'Laomedeia', desc: '清爽干净', gender: 'male' },
+    { id: 'pNInz6obpgDQGcFmaJgB', icon: 'mdi:weather-night', name: 'Adam', desc: '多语言', gender: 'male' },
+    { id: 'ErXwobaYiN019PkySvjV', icon: 'mdi:arm-flex', name: 'Antoni', desc: '磁性深沉', gender: 'male' },
+    { id: 'VR6AewLTigWG4xSOukaG', icon: 'mdi:heart-outline', name: 'Arnold', desc: '强劲有力', gender: 'male' },
+    { id: 'yoZ06aMxZJJ28mfd3POQ', icon: 'mdi:hat-fedora', name: 'Sam', desc: '年轻活力', gender: 'male' },
+    { id: 'TxGEqnHWrfWFTfGW9XjX', icon: 'mdi:microphone', name: 'Josh', desc: '浑厚播音', gender: 'male' },
+    { id: 'IKne3meq5aSn9XLyUdCD', icon: 'mdi:radio', name: 'Charlie', desc: '轻松随意', gender: 'male' },
   ]},
 ];
 
-let currentSelectedVoice = 'Kore';
+let currentSelectedVoice = 'pNInz6obpgDQGcFmaJgB'; // Adam (免费可用)
 let currentFilter = 'all'; // all | zh | en
 let previewingVoice = null;
 

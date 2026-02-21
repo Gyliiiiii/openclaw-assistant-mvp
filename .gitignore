@@ -37,3 +37,6 @@ out/
 
 # Project-specific
 agent.md
+
+# TTS test output
+tts-test-output/
