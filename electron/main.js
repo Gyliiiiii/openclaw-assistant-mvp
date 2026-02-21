@@ -306,7 +306,7 @@ function connectMQTT() {
 
   const mqttOptions = {
     clientId: `electron-${DEVICE_ID}`,
-    clean: true,
+    clean: false,  // 保持会话，支持离线消息
     reconnectPeriod: 3000,
     protocolVersion: 4,  // MQTT 3.1.1
   };
@@ -319,6 +319,7 @@ function connectMQTT() {
 
   mqttClient.on('connect', () => {
     console.log('[MQTT] Connected to broker');
+    mqttReady = false;
     // 先订阅，订阅成功后才标记 ready
     mqttClient.subscribe([TOPICS.outbound, TOPICS.control], { qos: 1 }, (err) => {
       if (err) {
@@ -333,7 +334,10 @@ function connectMQTT() {
           status: 'online',
           deviceId: DEVICE_ID,
           timestamp: Date.now()
-        }), { qos: 1 });
+        }), { qos: 1 }, (err) => {
+          if (err) console.error('[MQTT] 发布在线状态失败:', err);
+          else console.log('[MQTT] 已发布在线状态');
+        });
       }
     });
   });
@@ -490,6 +494,11 @@ async function chatWithOpenClaw(message) {
   // 等待 MQTT 连接就绪（最多 10 秒）
   await waitForMQTT(10000);
 
+  // 二次检查连接状态
+  if (!mqttClient || !mqttClient.connected) {
+    throw new Error('MQTT 未连接');
+  }
+
   const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   currentMessageId = msgId;
 
@@ -529,16 +538,23 @@ async function chatWithOpenClaw(message) {
     }, 180000);
 
     // 发送消息到 inbound topic
-    mqttClient.publish(TOPICS.inbound, JSON.stringify({
+    const payload = JSON.stringify({
       type: 'message',
       id: msgId,
       text: message,
       timestamp: Date.now()
-    }), { qos: 1 }, (err) => {
+    });
+
+    console.log(`[MQTT] Publishing to ${TOPICS.inbound}, payload size: ${payload.length} bytes`);
+
+    mqttClient.publish(TOPICS.inbound, payload, { qos: 1 }, (err) => {
       if (err) {
+        console.error('[MQTT] Publish 失败:', err);
         clearTimeout(streamTimeout);
         cleanupStream();
         reject(new Error(`MQTT publish 失败: ${err.message}`));
+      } else {
+        console.log('[MQTT] Publish 成功, msgId:', msgId);
       }
     });
   });
