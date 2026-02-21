@@ -6,13 +6,14 @@
 
 ## 中文
 
-基于 Electron 的 AI 语音桌面助手，集成 Deepgram 实时语音识别、MiniMax 文字转语音，以及 OpenClaw Gateway。
+基于 Electron 的 AI 语音桌面助手，集成 Deepgram 实时语音识别、MiniMax/ElevenLabs 文字转语音，以及 OpenClaw Gateway。
 
 ### 功能特性
 
 - ✅ Electron 桌面应用，支持 macOS (x64 + arm64)
 - ✅ 实时语音识别（Deepgram nova-2，中文）
-- ✅ 流式文字转语音（MiniMax，逐句合成无缝播放）
+- ✅ 双 TTS 引擎支持（MiniMax / ElevenLabs，可切换）
+- ✅ 流式文字转语音（逐句合成无缝播放）
 - ✅ OpenClaw Gateway 集成（MQTT 协议，支持云端通信）
 - ✅ 多角色系统（龙虾小虾米、Amy，更多角色开发中）
 - ✅ 30 种语音音色可选，实时切换
@@ -55,12 +56,21 @@ cp .env.example .env
 # 获取: https://console.deepgram.com/
 DEEPGRAM_API_KEY=your_key
 
+# TTS 引擎选择
+TTS_PROVIDER=minimax
+# 可选: minimax | elevenlabs
+
 # MiniMax（文字转语音）
 # 获取: https://platform.minimaxi.com/
 MINIMAX_API_KEY=your_key
 MINIMAX_GROUP_ID=your_group_id
 MINIMAX_MODEL=speech-02-turbo
 MINIMAX_VOICE_ID=Lovely_Girl
+
+# ElevenLabs（文字转语音）
+# 获取: https://elevenlabs.io/
+ELEVENLABS_API_KEY=your_key
+ELEVENLABS_VOICE_ID=pNInz6obpgDQGcFmaJgB
 
 # MQTT Broker（OpenClaw 通信）
 # 生产环境: wss://your-emqx-cloud.emqxsl.com:8084/mqtt (EMQX Cloud Serverless)
@@ -111,7 +121,7 @@ npm run build:dmg
 |---|---|---|
 | 桌面框架 | Electron 28 | 跨平台桌面应用 |
 | 语音识别 | Deepgram nova-2 | WebSocket 实时转写 |
-| 文字转语音 | MiniMax speech-02-turbo | REST API，MP3 32kHz |
+| 文字转语音 | MiniMax / ElevenLabs | 双引擎支持，可切换 |
 | AI 后端 | OpenClaw | MQTT 协议，云端通信 |
 | 前端 | 原生 HTML/CSS/JS | 无框架依赖 |
 | 动画 | Canvas 2D | 粒子系统 + 波纹效果 |
@@ -149,7 +159,8 @@ An Electron-based AI voice desktop assistant featuring real-time speech recognit
 
 - ✅ Electron desktop app with macOS support (x64 + arm64)
 - ✅ Real-time speech recognition (Deepgram nova-2, Chinese)
-- ✅ Streaming text-to-speech (MiniMax, sentence-by-sentence seamless playback)
+- ✅ Dual TTS engine support (MiniMax / ElevenLabs, switchable)
+- ✅ Streaming text-to-speech (sentence-by-sentence seamless playback)
 - ✅ OpenClaw Gateway integration (MQTT protocol, cloud communication)
 - ✅ Multi-character system (Lobster, Amy, more coming soon)
 - ✅ 30 voice presets with instant switching
@@ -192,12 +203,21 @@ cp .env.example .env
 # Get key: https://console.deepgram.com/
 DEEPGRAM_API_KEY=your_key
 
+# TTS Provider Selection
+TTS_PROVIDER=minimax
+# Options: minimax | elevenlabs
+
 # MiniMax (text-to-speech)
 # Get key: https://platform.minimaxi.com/
 MINIMAX_API_KEY=your_key
 MINIMAX_GROUP_ID=your_group_id
 MINIMAX_MODEL=speech-02-turbo
 MINIMAX_VOICE_ID=Lovely_Girl
+
+# ElevenLabs (text-to-speech)
+# Get key: https://elevenlabs.io/
+ELEVENLABS_API_KEY=your_key
+ELEVENLABS_VOICE_ID=pNInz6obpgDQGcFmaJgB
 
 # MQTT Broker (OpenClaw communication)
 # Production: wss://your-emqx-cloud.emqxsl.com:8084/mqtt (EMQX Cloud Serverless)
@@ -248,7 +268,7 @@ npm run build:dmg
 |---|---|---|
 | Desktop | Electron 28 | Cross-platform desktop app |
 | STT | Deepgram nova-2 | WebSocket real-time transcription |
-| TTS | MiniMax speech-02-turbo | REST API, MP3 32kHz |
+| TTS | MiniMax / ElevenLabs | Dual engine support, switchable |
 | AI Backend | OpenClaw | MQTT protocol, cloud communication |
 | Frontend | Vanilla HTML/CSS/JS | No framework dependencies |
 | Animation | Canvas 2D | Particle system + ripple effects |

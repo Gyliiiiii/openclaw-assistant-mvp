@@ -8,7 +8,7 @@ This file provides guidance for Claude Code (claude.ai/code) when working in thi
 
 ## Project Overview
 
-OpenClaw Desktop Assistant MVP — an Electron-based AI voice assistant featuring real-time speech recognition (Deepgram), text-to-speech (MiniMax), and integration with the Clawdbot AI backend via MQTT.
+OpenClaw Desktop Assistant MVP — an Electron-based AI voice assistant featuring real-time speech recognition (Deepgram), text-to-speech (MiniMax/ElevenLabs), and integration with the Clawdbot AI backend via MQTT.
 
 ## Development Commands
 
@@ -39,12 +39,21 @@ Required environment variables in the `.env` file:
 # Get key: https://console.deepgram.com/
 DEEPGRAM_API_KEY=your_deepgram_api_key_here
 
-# MiniMax API (text-to-speech / TTS)
+# TTS Provider Selection
+TTS_PROVIDER=minimax
+# Options: minimax | elevenlabs
+
+# MiniMax TTS (text-to-speech)
 # Get key: https://platform.minimaxi.com/
 MINIMAX_API_KEY=your_minimax_api_key_here
 MINIMAX_GROUP_ID=your_minimax_group_id_here
 MINIMAX_MODEL=speech-02-turbo
 MINIMAX_VOICE_ID=Lovely_Girl
+
+# ElevenLabs TTS (text-to-speech)
+# Get key: https://elevenlabs.io/
+ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+ELEVENLABS_VOICE_ID=pNInz6obpgDQGcFmaJgB
 
 # MQTT Broker
 MQTT_BROKER_URL=mqtt://localhost:1883
@@ -76,7 +85,7 @@ Copy `.env.example` to `.env` and fill in your API keys.
 **Electron Main Process** (`electron/main.js`)
 - Window management (full mode and mini floating bubble mode)
 - Deepgram Live API STT integration with persistent WebSocket connection
-- MiniMax TTS streaming sentence-by-sentence synthesis (REST API)
+- Dual TTS support: MiniMax and ElevenLabs (switchable via TTS_PROVIDER)
 - MQTT client for OpenClaw Gateway communication (pub/sub)
 - Task queue manager for async operations (TaskManager class)
 - SentenceSplitter class for real-time text chunking
