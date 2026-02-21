@@ -122,12 +122,21 @@ npm run build:dmg
 - 需要有效的 Deepgram、MiniMax 和 OpenClaw API 密钥
 - 目前仅在 macOS 上测试
 
-### 下一步计划
+### V2 开发计划
 
-- [ ] 添加更多角色（猫咪、机器人等视频资源制作中）
+详细计划请查看 [V2_ROADMAP.md](./V2_ROADMAP.md)
+
+**短期（1-2周）**
+- [ ] ElevenLabs TTS 对比测试（延迟、音质、成本）
+- [ ] 升级 Deepgram Nova-3（降低 100-200ms 延迟）
+
+**中期（1-2月）**
+- [ ] 实时唇形同步头像（D-ID 或 SadTalker）
+- [ ] 多语言支持（中英文自动切换）
+
+**长期（3-6月）**
 - [ ] 主动提醒功能
-- [ ] 多语言语音识别切换
-- [ ] 自定义角色形象上传
+- [ ] 自定义角色上传
 - [ ] Windows 平台支持
 
 ---
@@ -250,10 +259,19 @@ npm run build:dmg
 - Valid Deepgram, MiniMax, and OpenClaw API keys are needed
 - Currently tested on macOS only
 
-### Roadmap
+### V2 Development Roadmap
 
-- [ ] Add more characters (Cat, Robot — video assets in progress)
+See [V2_ROADMAP.md](./V2_ROADMAP.md) for details.
+
+**Short-term (1-2 weeks)**
+- [ ] ElevenLabs TTS comparison test (latency, quality, cost)
+- [ ] Upgrade to Deepgram Nova-3 (reduce 100-200ms latency)
+
+**Mid-term (1-2 months)**
+- [ ] Real-time lip-sync avatar (D-ID or SadTalker)
+- [ ] Multi-language support (auto-switch Chinese/English)
+
+**Long-term (3-6 months)**
 - [ ] Proactive reminders
-- [ ] Multi-language speech recognition switching
 - [ ] Custom character avatar uploads
 - [ ] Windows platform support

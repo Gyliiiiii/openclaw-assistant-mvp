@@ -407,3 +407,24 @@ Interruption flow:
 - [ ] MQTT connection to broker works (connect, subscribe, publish)
 - [ ] Agent abort stops backend generation on interruption
 - [ ] Chinese speech recognition works correctly (zh-CN)
+
+## V2 Development Roadmap
+
+详细的 V2 版本开发计划请查看 `V2_ROADMAP.md`。
+
+### 核心升级方向
+
+1. **短期（1-2周）**
+   - 测试 ElevenLabs TTS vs MiniMax（延迟、音质、成本对比）
+   - 升级 Deepgram Nova-3（降低 100-200ms 延迟）
+
+2. **中期（1-2月）**
+   - 实时唇形同步头像（D-ID 或 SadTalker）
+   - 多语言支持（中英文自动切换）
+
+3. **长期（3-6月）**
+   - 主动提醒功能
+   - 自定义角色上传
+   - Windows 平台支持
+
+详见 `V2_ROADMAP.md` 获取完整技术方案和实施步骤。
