@@ -305,7 +305,7 @@ function connectMQTT() {
   console.log(`[MQTT] 正在连接 ${brokerUrl}, deviceId: ${DEVICE_ID}`);
 
   const mqttOptions = {
-    clientId: `electron-${DEVICE_ID}`,
+    clientId: `electron-desktop-${DEVICE_ID}`,  // 加前缀避免与 Gateway 冲突
     clean: false,  // 保持会话，支持离线消息
     reconnectPeriod: 3000,
     protocolVersion: 4,  // MQTT 3.1.1
