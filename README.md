@@ -11,7 +11,7 @@
 ### 功能特性
 
 - ✅ Electron 桌面应用，支持 macOS (x64 + arm64)
-- ✅ 实时语音识别（Deepgram nova-2，中文）
+- ✅ 实时语音识别（Deepgram nova-3，中文）
 - ✅ 双 TTS 引擎支持（MiniMax / ElevenLabs，可切换）
 - ✅ 流式文字转语音（逐句合成无缝播放）
 - ✅ OpenClaw Gateway 集成（MQTT 协议，支持云端通信）
@@ -120,7 +120,7 @@ npm run build:dmg
 | 组件 | 技术 | 说明 |
 |---|---|---|
 | 桌面框架 | Electron 28 | 跨平台桌面应用 |
-| 语音识别 | Deepgram nova-2 | WebSocket 实时转写 |
+| 语音识别 | Deepgram nova-3 | WebSocket 实时转写 |
 | 文字转语音 | MiniMax / ElevenLabs | 双引擎支持，可切换 |
 | AI 后端 | OpenClaw | MQTT 协议，云端通信 |
 | 前端 | 原生 HTML/CSS/JS | 无框架依赖 |
@@ -158,7 +158,7 @@ An Electron-based AI voice desktop assistant featuring real-time speech recognit
 ### Features
 
 - ✅ Electron desktop app with macOS support (x64 + arm64)
-- ✅ Real-time speech recognition (Deepgram nova-2, Chinese)
+- ✅ Real-time speech recognition (Deepgram nova-3, Chinese)
 - ✅ Dual TTS engine support (MiniMax / ElevenLabs, switchable)
 - ✅ Streaming text-to-speech (sentence-by-sentence seamless playback)
 - ✅ OpenClaw Gateway integration (MQTT protocol, cloud communication)
@@ -267,7 +267,7 @@ npm run build:dmg
 | Component | Technology | Description |
 |---|---|---|
 | Desktop | Electron 28 | Cross-platform desktop app |
-| STT | Deepgram nova-2 | WebSocket real-time transcription |
+| STT | Deepgram nova-3 | WebSocket real-time transcription |
 | TTS | MiniMax / ElevenLabs | Dual engine support, switchable |
 | AI Backend | OpenClaw | MQTT protocol, cloud communication |
 | Frontend | Vanilla HTML/CSS/JS | No framework dependencies |

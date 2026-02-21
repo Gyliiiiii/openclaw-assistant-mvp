@@ -704,7 +704,7 @@ ipcMain.handle('deepgram:startListening', async (event) => {
     console.log('[STT] 正在建立 Deepgram WebSocket 连接...');
 
     deepgramLive = deepgramClient.listen.live({
-      model: 'nova-2',
+      model: 'nova-3',
       language: 'zh-CN',
       smart_format: true,
       interim_results: true,

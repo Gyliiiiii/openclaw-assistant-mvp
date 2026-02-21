@@ -84,7 +84,7 @@ Copy `.env.example` to `.env` and fill in your API keys.
 
 **Electron Main Process** (`electron/main.js`)
 - Window management (full mode and mini floating bubble mode)
-- Deepgram Live API STT integration with persistent WebSocket connection
+- Deepgram Live API STT integration with persistent WebSocket connection (Nova-3)
 - Dual TTS support: MiniMax and ElevenLabs (switchable via TTS_PROVIDER)
 - MQTT client for OpenClaw Gateway communication (pub/sub)
 - Task queue manager for async operations (TaskManager class)
