@@ -56,6 +56,9 @@
         <span class="state-text" id="state-text">点击我开始对话</span>
       </div>
       <div class="widget-controls">
+        <button id="language-select-btn" class="tiny-btn" title="切换语言">
+          <span class="iconify" data-icon="mdi:translate"></span>
+        </button>
         <button id="character-select-btn" class="tiny-btn" title="切换角色">
           <span class="iconify" data-icon="mdi:account-switch"></span>
         </button>
@@ -104,6 +107,17 @@
         <button class="filter-btn" data-filter="en">English</button>
       </div>
       <div class="voice-list" id="voice-list"></div>
+    </div>
+
+    <!-- 语言选择面板 -->
+    <div class="language-panel" id="language-panel" style="display: none;">
+      <div class="language-panel-header">
+        <span class="language-panel-title">语音识别语言</span>
+        <button id="close-language-panel" class="tiny-btn">
+          <span class="iconify" data-icon="mdi:close"></span>
+        </button>
+      </div>
+      <div class="language-list" id="language-list"></div>
     </div>
   </div>
 

@@ -1111,3 +1111,22 @@ app.on('activate', () => {
     createWindow();
   }
 });
+
+// ===== 语言设置 =====
+ipcMain.handle('deepgram:setLanguage', async (event, language, model) => {
+  console.log(`[STT] 语言切换: ${DEEPGRAM_LANGUAGE} → ${language}, 模型: ${model}`);
+  
+  // 更新全局变量
+  process.env.DEEPGRAM_LANGUAGE = language;
+  process.env.DEEPGRAM_MODEL = model;
+  
+  // 重新连接 Deepgram（如果已连接）
+  if (deepgramLive) {
+    try {
+      deepgramLive.finish();
+    } catch (e) {}
+    deepgramLive = null;
+  }
+  
+  return { success: true };
+});

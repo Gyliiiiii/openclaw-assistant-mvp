@@ -75,6 +75,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     stop: () => ipcRenderer.invoke('tts:stop')  // 停止 TTS 播放
   },
 
+  // 语言设置
+  setLanguage: (language, model) => ipcRenderer.invoke('deepgram:setLanguage', language, model),
+
   // 异步任务管理
   task: {
     create: (message) => ipcRenderer.invoke('task:create', message),

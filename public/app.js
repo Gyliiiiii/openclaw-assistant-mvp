@@ -1612,3 +1612,56 @@ textInput.addEventListener('keypress', (e) => {
     handleTextInput();
   }
 });
+
+// ===== 语言选择 =====
+const languagePanel = document.getElementById('language-panel');
+const languageList = document.getElementById('language-list');
+const languageSelectBtn = document.getElementById('language-select-btn');
+const closeLanguagePanel = document.getElementById('close-language-panel');
+
+const LANGUAGES = [
+  { code: 'auto', name: '自动检测', desc: '根据语音内容自动识别', icon: 'mdi:auto-fix', model: 'nova-2' },
+  { code: 'zh-CN', name: '中文', desc: '普通话', icon: 'mdi:translate', model: 'nova-2' },
+  { code: 'en-US', name: 'English', desc: 'US English', icon: 'mdi:translate', model: 'nova-2' },
+];
+
+let currentLanguage = 'zh-CN';
+
+function renderLanguageList() {
+  languageList.innerHTML = '';
+  LANGUAGES.forEach(lang => {
+    const item = document.createElement('div');
+    item.className = `language-item ${lang.code === currentLanguage ? 'selected' : ''}`;
+    item.innerHTML = `
+      <span class="iconify language-icon" data-icon="${lang.icon}"></span>
+      <div class="language-info">
+        <div class="language-name">${lang.name}</div>
+        <div class="language-desc">${lang.desc}</div>
+      </div>
+      ${lang.code === currentLanguage ? '<span class="iconify language-check" data-icon="mdi:check"></span>' : ''}
+    `;
+    item.onclick = () => selectLanguage(lang.code);
+    languageList.appendChild(item);
+  });
+}
+
+async function selectLanguage(code) {
+  currentLanguage = code;
+  const lang = LANGUAGES.find(l => l.code === code);
+  await window.electronAPI.setLanguage(code, lang.model);
+  renderLanguageList();
+  setTimeout(() => {
+    languagePanel.style.display = 'none';
+  }, 200);
+}
+
+languageSelectBtn.onclick = () => {
+  languagePanel.style.display = 'flex';
+  renderLanguageList();
+};
+
+closeLanguagePanel.onclick = () => {
+  languagePanel.style.display = 'none';
+};
+
+renderLanguageList();
