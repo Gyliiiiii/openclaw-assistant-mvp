@@ -38,6 +38,10 @@ Required environment variables in the `.env` file:
 # Deepgram API (speech recognition / STT)
 # Get key: https://console.deepgram.com/
 DEEPGRAM_API_KEY=your_deepgram_api_key_here
+DEEPGRAM_MODEL=nova-2
+# Options: nova-2 (supports Chinese) | nova-3 (English only, lower latency)
+DEEPGRAM_LANGUAGE=zh-CN
+# Options: zh-CN (Chinese) | en-US (English) | other language codes
 
 # TTS Provider Selection
 TTS_PROVIDER=minimax

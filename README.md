@@ -55,6 +55,10 @@ cp .env.example .env
 # Deepgram（语音识别）
 # 获取: https://console.deepgram.com/
 DEEPGRAM_API_KEY=your_key
+DEEPGRAM_MODEL=nova-2
+# 可选: nova-2 (支持中文) | nova-3 (仅英文，延迟更低)
+DEEPGRAM_LANGUAGE=zh-CN
+# 可选: zh-CN (中文) | en-US (英文) | 其他语言代码
 
 # TTS 引擎选择
 TTS_PROVIDER=minimax
@@ -202,6 +206,10 @@ cp .env.example .env
 # Deepgram (speech recognition)
 # Get key: https://console.deepgram.com/
 DEEPGRAM_API_KEY=your_key
+DEEPGRAM_MODEL=nova-2
+# Options: nova-2 (supports Chinese) | nova-3 (English only, lower latency)
+DEEPGRAM_LANGUAGE=zh-CN
+# Options: zh-CN (Chinese) | en-US (English) | other language codes
 
 # TTS Provider Selection
 TTS_PROVIDER=minimax

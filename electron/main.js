@@ -169,6 +169,10 @@ let deepgramClient = null;
 let deepgramLive = null;
 let currentSender = null;
 
+// Deepgram 配置
+const DEEPGRAM_MODEL = process.env.DEEPGRAM_MODEL || 'nova-2';
+const DEEPGRAM_LANGUAGE = process.env.DEEPGRAM_LANGUAGE || 'zh-CN';
+
 // ===== MQTT 配置 =====
 const DEVICE_ID = process.env.MQTT_DEVICE_ID || `desktop-${Date.now()}`;
 const TOPICS = {
@@ -704,8 +708,8 @@ ipcMain.handle('deepgram:startListening', async (event) => {
     console.log('[STT] 正在建立 Deepgram WebSocket 连接...');
 
     deepgramLive = deepgramClient.listen.live({
-      model: 'nova-2',
-      language: 'zh-CN',
+      model: DEEPGRAM_MODEL,
+      language: DEEPGRAM_LANGUAGE,
       smart_format: true,
       interim_results: true,
       utterance_end_ms: 1200,
