@@ -11,12 +11,13 @@
 ### 功能特性
 
 - ✅ Electron 桌面应用，支持 macOS (x64 + arm64)
-- ✅ 实时语音识别（Deepgram nova-3，中文）
+- ✅ 实时语音识别（Deepgram nova-2，支持中英文切换）
 - ✅ 双 TTS 引擎支持（MiniMax / ElevenLabs，可切换）
+- ✅ 前端语言选择（中文/英文/自动检测）
 - ✅ 流式文字转语音（逐句合成无缝播放）
 - ✅ OpenClaw Gateway 集成（MQTT 协议，支持云端通信）
 - ✅ 多角色系统（龙虾小虾米、Amy，更多角色开发中）
-- ✅ 30 种语音音色可选，实时切换
+- ✅ 16 种 ElevenLabs 语音音色可选，实时切换
 - ✅ 迷你悬浮球模式（64x64px，单击听写 / 双击恢复）
 - ✅ 语音打断 — 随时点击停止播放并继续对话
 - ✅ 异步任务队列 — 说"稍后告诉我"创建后台任务
@@ -80,7 +81,7 @@ ELEVENLABS_VOICE_ID=pNInz6obpgDQGcFmaJgB
 # 生产环境: wss://your-emqx-cloud.emqxsl.com:8084/mqtt (EMQX Cloud Serverless)
 # 开发环境: mqtt://localhost:1883 (本地 Mosquitto)
 MQTT_BROKER_URL=wss://your-emqx-cloud.emqxsl.com:8084/mqtt
-MQTT_DEVICE_ID=desktop-001
+MQTT_DEVICE_ID=desktop-002
 MQTT_USERNAME=your_username
 MQTT_PASSWORD=your_password
 ```
@@ -114,17 +115,18 @@ npm run build:dmg
 2. **文字输入**: 在底部输入框直接输入文字
 3. **语音打断**: 播放中点击角色可打断，查看完整回复
 4. **角色切换**: 点击角色选择面板切换不同助手形象
-5. **音色选择**: 从 30 种预设音色中选择喜欢的声音
-6. **迷你模式**: 最小化为悬浮球，单击听写，双击恢复
-7. **后台任务**: 说"稍后告诉我"，任务完成后系统通知
-8. **窗口拖动**: 在窗口任意位置拖动（除按钮区域）
+5. **音色选择**: 从 16 种 ElevenLabs 预设音色中选择喜欢的声音
+6. **语言切换**: 支持中文/英文/自动检测，前端一键切换
+7. **迷你模式**: 最小化为悬浮球，单击听写，双击恢复
+8. **后台任务**: 说"稍后告诉我"，任务完成后系统通知
+9. **窗口拖动**: 在窗口任意位置拖动（除按钮区域）
 
 ### 技术栈
 
 | 组件 | 技术 | 说明 |
 |---|---|---|
 | 桌面框架 | Electron 28 | 跨平台桌面应用 |
-| 语音识别 | Deepgram nova-3 | WebSocket 实时转写 |
+| 语音识别 | Deepgram nova-2 | WebSocket 实时转写，支持中英文 |
 | 文字转语音 | MiniMax / ElevenLabs | 双引擎支持，可切换 |
 | AI 后端 | OpenClaw | MQTT 协议，云端通信 |
 | 前端 | 原生 HTML/CSS/JS | 无框架依赖 |
@@ -140,9 +142,10 @@ npm run build:dmg
 
 详细计划请查看 [V2_ROADMAP.md](./V2_ROADMAP.md)
 
-**短期（1-2周）**
-- [ ] ElevenLabs TTS 对比测试（延迟、音质、成本）
-- [ ] 升级 Deepgram Nova-3（降低 100-200ms 延迟）
+**短期（1-2周）** ✅ 已完成
+- [x] ElevenLabs TTS 对比测试（延迟、音质、成本）
+- [x] 升级 Deepgram Nova-3（降低 100-200ms 延迟）
+- [x] 前端语言选择（中文/英文/自动检测）
 
 **中期（1-2月）**
 - [ ] 实时唇形同步头像（D-ID 或 SadTalker）
@@ -157,17 +160,18 @@ npm run build:dmg
 
 ## English
 
-An Electron-based AI voice desktop assistant featuring real-time speech recognition (Deepgram), text-to-speech (MiniMax), and OpenClaw Gateway integration.
+An Electron-based AI voice desktop assistant featuring real-time speech recognition (Deepgram), text-to-speech (MiniMax/ElevenLabs), and OpenClaw Gateway integration.
 
 ### Features
 
 - ✅ Electron desktop app with macOS support (x64 + arm64)
-- ✅ Real-time speech recognition (Deepgram nova-3, Chinese)
+- ✅ Real-time speech recognition (Deepgram nova-2, Chinese & English)
 - ✅ Dual TTS engine support (MiniMax / ElevenLabs, switchable)
+- ✅ Frontend language selection (Chinese / English / auto-detect)
 - ✅ Streaming text-to-speech (sentence-by-sentence seamless playback)
 - ✅ OpenClaw Gateway integration (MQTT protocol, cloud communication)
 - ✅ Multi-character system (Lobster, Amy, more coming soon)
-- ✅ 30 voice presets with instant switching
+- ✅ 16 ElevenLabs voice presets with instant switching
 - ✅ Mini floating bubble mode (64x64px, click to listen / double-click to restore)
 - ✅ Speech interruption — tap to stop playback and continue conversation
 - ✅ Async task queue — say "tell me later" to create background tasks
@@ -231,7 +235,7 @@ ELEVENLABS_VOICE_ID=pNInz6obpgDQGcFmaJgB
 # Production: wss://your-emqx-cloud.emqxsl.com:8084/mqtt (EMQX Cloud Serverless)
 # Development: mqtt://localhost:1883 (local Mosquitto)
 MQTT_BROKER_URL=wss://your-emqx-cloud.emqxsl.com:8084/mqtt
-MQTT_DEVICE_ID=desktop-001
+MQTT_DEVICE_ID=desktop-002
 MQTT_USERNAME=your_username
 MQTT_PASSWORD=your_password
 ```
@@ -265,17 +269,18 @@ npm run build:dmg
 2. **Text Input**: Type directly in the input box at the bottom
 3. **Interrupt**: Tap the character during playback to stop and view the full response
 4. **Switch Characters**: Open the character panel to choose a different assistant
-5. **Change Voice**: Pick from 30 voice presets
-6. **Mini Mode**: Minimize to a floating bubble; single-click to listen, double-click to restore
-7. **Background Tasks**: Say "tell me later" and get a system notification when done
-8. **Drag Window**: Drag anywhere on the window (except button areas)
+5. **Change Voice**: Pick from 16 ElevenLabs voice presets
+6. **Language**: Switch between Chinese, English, or auto-detect
+7. **Mini Mode**: Minimize to a floating bubble; single-click to listen, double-click to restore
+8. **Background Tasks**: Say "tell me later" and get a system notification when done
+9. **Drag Window**: Drag anywhere on the window (except button areas)
 
 ### Tech Stack
 
 | Component | Technology | Description |
 |---|---|---|
 | Desktop | Electron 28 | Cross-platform desktop app |
-| STT | Deepgram nova-3 | WebSocket real-time transcription |
+| STT | Deepgram nova-2 | WebSocket real-time transcription, Chinese & English |
 | TTS | MiniMax / ElevenLabs | Dual engine support, switchable |
 | AI Backend | OpenClaw | MQTT protocol, cloud communication |
 | Frontend | Vanilla HTML/CSS/JS | No framework dependencies |
@@ -291,9 +296,10 @@ npm run build:dmg
 
 See [V2_ROADMAP.md](./V2_ROADMAP.md) for details.
 
-**Short-term (1-2 weeks)**
-- [ ] ElevenLabs TTS comparison test (latency, quality, cost)
-- [ ] Upgrade to Deepgram Nova-3 (reduce 100-200ms latency)
+**Short-term (1-2 weeks)** ✅ Completed
+- [x] ElevenLabs TTS comparison test (latency, quality, cost)
+- [x] Upgrade to Deepgram Nova-3 (reduce 100-200ms latency)
+- [x] Frontend language selection (Chinese / English / auto-detect)
 
 **Mid-term (1-2 months)**
 - [ ] Real-time lip-sync avatar (D-ID or SadTalker)

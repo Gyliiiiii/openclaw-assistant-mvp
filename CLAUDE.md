@@ -61,7 +61,7 @@ ELEVENLABS_VOICE_ID=pNInz6obpgDQGcFmaJgB
 
 # MQTT Broker
 MQTT_BROKER_URL=mqtt://localhost:1883
-MQTT_DEVICE_ID=desktop-001
+MQTT_DEVICE_ID=desktop-002
 MQTT_USERNAME=
 MQTT_PASSWORD=
 ```
@@ -69,7 +69,7 @@ MQTT_PASSWORD=
 **生产环境（EMQX Cloud Serverless）：**
 ```bash
 MQTT_BROKER_URL=wss://your-address.emqxsl.com:8084/mqtt
-MQTT_DEVICE_ID=desktop-001
+MQTT_DEVICE_ID=desktop-002
 MQTT_USERNAME=your_username
 MQTT_PASSWORD=your_password
 ```
@@ -103,6 +103,7 @@ Copy `.env.example` to `.env` and fill in your API keys.
 - Real-time transcription display with 3-second delayed execution
 - Streaming TTS audio queue management
 - Speech interruption handling
+- Language selection UI (Chinese / English / auto-detect)
 - Aura/orb animation engine (`orb.js`) with particle system and ripple effects
 
 **Preload Script** (`electron/preload.js`)
@@ -120,10 +121,10 @@ Copy `.env.example` to `.env` and fill in your API keys.
 
 **Streaming TTS Pipeline**
 ```
-AI Response → SentenceSplitter → TTSQueueManager → MiniMax API → Audio Chunks → Sequential Playback
+AI Response → SentenceSplitter → TTSQueueManager → TTS API (MiniMax/ElevenLabs) → Audio Chunks → Sequential Playback
 ```
 - Sentences extracted in real time as the AI streams its response
-- Each sentence synthesized independently via MiniMax REST API
+- Each sentence synthesized independently via configured TTS provider
 - Audio chunks (MP3, base64-encoded) sent to renderer via `tts:audioChunk` IPC events
 - Audio chunks played back seamlessly in sequence
 - First sentence triggers state transition to 'speaking'
@@ -149,8 +150,10 @@ Microphone → AudioContext (16kHz) → AudioWorklet → IPC → Deepgram Live A
 ```
 
 **Key Parameters**
-- Model: `nova-2`
-- Language: `zh-CN`
+- Model: `nova-2` (default, configurable via `DEEPGRAM_MODEL`)
+- Language: `zh-CN` (default, configurable via `DEEPGRAM_LANGUAGE`)
+- Frontend language selection: Chinese (nova-2 + zh-CN) / English (nova-2 + en-US) / Auto-detect (nova-2 + auto)
+- Language switch via `deepgram:setLanguage` IPC call, reconnects Deepgram with new params
 - Sample rate: 16kHz mono PCM (linear16)
 - Interim results: enabled
 - Utterance end timeout: 1200ms
@@ -166,6 +169,12 @@ Microphone → AudioContext (16kHz) → AudioWorklet → IPC → Deepgram Live A
 - Configurable voice_id, speed, volume, pitch
 - Language boost: Chinese
 
+**TTS Synthesis (ElevenLabs)**
+- ElevenLabs TTS REST API (`eleven_flash_v2_5` model)
+- Endpoint: `https://api.elevenlabs.io/v1/text-to-speech/{voiceId}`
+- Output format: MP3, base64-encoded for IPC transport
+- Configurable voice_id via frontend voice preset selection
+
 ### Task Management
 
 **Async Task System**
@@ -177,7 +186,7 @@ Microphone → AudioContext (16kHz) → AudioWorklet → IPC → Deepgram Live A
 
 **Sync vs. Async Detection**
 ```javascript
-const asyncKeywords = ['稍后', '待会', '查完告诉我', '完成后告诉我'];
+const asyncKeywords = ['稍后', '待会', '查完告诉我', '完成后告诉我', '好了告诉我', '处理完告诉我'];
 const isAsyncTask = asyncKeywords.some(keyword => command.includes(keyword));
 ```
 
@@ -185,8 +194,8 @@ const isAsyncTask = asyncKeywords.some(keyword => command.includes(keyword));
 
 **MQTT Protocol**
 1. Electron connects to MQTT Broker on startup (supports `mqtt://`, `mqtts://`, `wss://`)
-2. Subscribe to `openclaw/desktop/{deviceId}/outbound` and `openclaw/desktop/{deviceId}/control`
-3. User message → publish to `openclaw/desktop/{deviceId}/inbound` as `{ type: "message", id, text, timestamp }`
+2. Subscribe to `openclaw/mqtt/{deviceId}/outbound` and `openclaw/mqtt/{deviceId}/control`
+3. User message → publish to `openclaw/mqtt/{deviceId}/inbound` as `{ type: "message", id, text, timestamp }`
 4. Gateway Channel Plugin receives message, calls Agent
 5. Agent streams response → Gateway publishes `{ type: "stream", replyTo, chunk, seq, done }` to outbound
 6. Agent completes → Gateway publishes `{ type: "reply", replyTo, text, timestamp }` to outbound
@@ -198,7 +207,7 @@ const isAsyncTask = asyncKeywords.some(keyword => command.includes(keyword));
 开发环境（本地 Mosquitto）：
 ```bash
 MQTT_BROKER_URL=mqtt://localhost:1883
-MQTT_DEVICE_ID=desktop-001
+MQTT_DEVICE_ID=desktop-002
 MQTT_USERNAME=
 MQTT_PASSWORD=
 ```
@@ -206,7 +215,7 @@ MQTT_PASSWORD=
 生产环境（EMQX Cloud Serverless）：
 ```bash
 MQTT_BROKER_URL=wss://your-address.emqxsl.com:8084/mqtt
-MQTT_DEVICE_ID=desktop-001
+MQTT_DEVICE_ID=desktop-002
 MQTT_USERNAME=your_username
 MQTT_PASSWORD=your_password
 ```
@@ -305,8 +314,8 @@ Text containing file paths (e.g., `~/Documents/file.txt`, `/Users/...`) is autom
 **Runtime:**
 - `@deepgram/sdk` v4.11.3 — Speech-to-text via Deepgram WebSocket API
 - `dotenv` v17.2.4 — Environment variable management
-- `node-fetch` v2.7.0 — HTTP client for MiniMax TTS API calls
-- `mqtt` ^5.0.0 — MQTT client for OpenClaw Gateway communication
+- `node-fetch` v2.7.0 — HTTP client for MiniMax/ElevenLabs TTS API calls
+- `mqtt` ^5.15.0 — MQTT client for OpenClaw Gateway communication
 
 **Dev:**
 - `electron` v28.0.0 — Desktop application framework
@@ -319,7 +328,7 @@ Text containing file paths (e.g., `~/Documents/file.txt`, `/Users/...`) is autom
 1. Add character config to `CHARACTER_PROFILES` in `app.js`
 2. Provide video files: `{id}-welcome.mp4`, `{id}-idle.mp4`, `{id}-listening.mp4`, `{id}-thinking.mp4`, `{id}-speaking.mp4`
 3. Define `auraColors` (RGB values) for each state
-4. Set `defaultVoice` from available MiniMax voice IDs
+4. Set `defaultVoice` from available ElevenLabs voice IDs
 5. Add the character ID to the `availableCharacters` array in `renderCharacterList()`
 
 > **Note:** Currently only `lobster` (5 videos) and `amy` (3 videos: welcome, listening, speaking) have video assets.
@@ -329,17 +338,17 @@ Text containing file paths (e.g., `~/Documents/file.txt`, `/Users/...`) is autom
 Voice presets are configured in the `VOICE_OPTIONS` array in `app.js`:
 ```javascript
 {
-  id: 'Kore',  // Voice ID sent to backend
+  id: 'pNInz6obpgDQGcFmaJgB',  // ElevenLabs Voice ID
   icon: 'mdi:icon-name',
-  name: 'Kore',
-  desc: 'Warm and friendly',
-  gender: 'female'
+  name: 'Adam',
+  desc: '多语言男声',
+  gender: 'male'
 }
 ```
 
-The frontend currently lists 30 Gemini-style voice names organized in groups (Recommended, Female, Male). The selected voice ID is passed to MiniMax via `tts:setVoice` IPC call.
+The frontend currently lists 16 ElevenLabs voice presets organized in groups (推荐, 女声, 男声). The selected voice ID is passed to the TTS engine via `tts:setVoice` IPC call.
 
-Available voices: Kore, Puck, Charon, Aoede, Fenrir, Leda, Orus, Callisto, Dione, Elara, Io, Thebe, Himalia, Carme, Ananke, Lysithea, Pasiphae, Sinope, Isonoe, Proteus, Triton, Nereid, Larissa, Galatea, Despina, Thalassa, Naiad, Halimede, Sao, Laomedeia
+Available voices: Adam, Rachel, Bella, Antoni, Elli, Dorothy, Charlotte, Lily, Arnold, Sam, Josh, Charlie
 
 ### Modifying State Transitions
 
@@ -361,7 +370,7 @@ npm run dev
 
 Key log prefixes:
 - `[STT]`: Deepgram speech-to-text events
-- `[TTS]`: MiniMax text-to-speech operations
+- `[TTS]`: Text-to-speech operations (MiniMax / ElevenLabs)
 - `[MQTT]`: MQTT broker communication
 - `[龙虾助手]`: Frontend application events
 - `[TaskManager]`: Async task queue operations
@@ -427,9 +436,10 @@ Interruption flow:
 
 ### 核心升级方向
 
-1. **短期（1-2周）**
-   - 测试 ElevenLabs TTS vs MiniMax（延迟、音质、成本对比）
-   - 升级 Deepgram Nova-3（降低 100-200ms 延迟）
+1. **短期（1-2周）** ✅ 已完成
+   - ~~测试 ElevenLabs TTS vs MiniMax（延迟、音质、成本对比）~~
+   - ~~升级 Deepgram Nova-3（降低 100-200ms 延迟）~~
+   - ~~前端语言选择（中文/英文/自动检测）~~
 
 2. **中期（1-2月）**
    - 实时唇形同步头像（D-ID 或 SadTalker）
